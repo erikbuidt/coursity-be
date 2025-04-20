@@ -31,7 +31,7 @@ export class HealthController {
   @Public()
   @Get('health')
   @HealthCheck()
-  public async performHealthCheck(): Promise<HealthCheckResult> {
+  public async executeHealthCheck(): Promise<HealthCheckResult> {
     return await this.health.check([
       async (): Promise<HealthIndicatorResult> => await this.http.pingCheck('dns', 'https://1.1.1.1'),
       async (): Promise<HealthIndicatorResult> => await this.db.pingCheck('database'),
