@@ -3,7 +3,7 @@ import { cleanEnv, num, str } from 'envalid'
 export type ConfigApp = IConfig
 export const configuration = (): ConfigApp => {
   const configEnvValidate = cleanEnv(process.env, {
-    NODE_ENV: str({ default: Env.DEFAULT, choices: Object.values(Env) }),
+    NODE_ENV: str({ default: Env.PRODUCTION, choices: Object.values(Env) }),
     APP_PORT: num({}),
     APP_VERSION: str({ default: '1' }),
     DB_HOST: str({ default: 'localhost' }),
@@ -25,8 +25,8 @@ export const configuration = (): ConfigApp => {
       username: configEnvValidate.DB_USER,
       password: configEnvValidate.DB_PASSWORD,
       database: configEnvValidate.DB_NAME,
-      synchronize: true,
-      logging: false,
+      synchronize: configEnvValidate.NODE_ENV !== Env.PRODUCTION,
+      logging: true,
       entities: ['dist/**/*.entity{.ts,.js}'],
     },
   }

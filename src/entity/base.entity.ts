@@ -15,6 +15,6 @@ export class Base {
   @Column({ nullable: true })
   deleted_by: string
 
-  @DeleteDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deleted_at: Date
 }

@@ -1,9 +1,8 @@
-import { LoggerModule as PinoModule } from 'nestjs-pino'
 import { Global, Module } from '@nestjs/common'
-import { loggerConfig } from './logger.config'
-
+import { Logger } from 'http-system-logger'
 @Global()
 @Module({
-  imports: [PinoModule.forRootAsync(loggerConfig)], // Ensure loggerConfig is imported correctly
+  providers: [Logger],
+  exports: [Logger],
 })
 export class LoggerModule {}

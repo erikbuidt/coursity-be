@@ -4,8 +4,10 @@ import { TypeOrmModule, type TypeOrmModuleOptions } from '@nestjs/typeorm'
 import { configuration } from '../config/configuration'
 import { UserModule } from '../api/user/user.module'
 import { HealthModule } from '../modules/health-check/health.module'
-
-import { LoggerModule } from '../modules/logger/logger.module'
+import { AxiosModule } from '@/modules/axios/axios.module'
+import { LoggerModule } from '@/modules/logger/logger.module'
+import { AppInterceptor } from '@/common/interceptors/app.interceptor'
+import { APP_INTERCEPTOR } from '@nestjs/core'
 
 @Module({
   imports: [
@@ -24,7 +26,9 @@ import { LoggerModule } from '../modules/logger/logger.module'
     }),
     UserModule,
     HealthModule,
-    LoggerModule, // Ensure LoggerModule is imported here
+    AxiosModule,
+    LoggerModule,
   ],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: AppInterceptor }],
 })
 export class AppModule {}

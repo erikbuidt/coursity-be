@@ -9,7 +9,7 @@ export class User extends Base {
   id: number
 
   @Column()
-  name: string
+  full_name: string
 
   @Column({ unique: true })
   email: string

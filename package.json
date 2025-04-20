@@ -18,8 +18,12 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "database:sync": "typeorm schema:sync",
-    "database:drop": "typeorm schema:drop"
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:run": "npm run typeorm migration:run -- -d ./db/datasource.ts",
+    "migration:generate": "npm run typeorm -- -d ./db/datasource.ts migration:generate ./db/migrations/%npm_config_name%",
+    "migration:create": "npm run typeorm -- migration:create ./db/migrations/%npm_config_name%",
+    "migration:revert": "npm run typeorm -- -d ./db/datasource.ts migration:revert",
+    "migration:show": "npm run typeorm -- migration:show -d ./db/datasource.ts"
   },
   "dependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -31,12 +35,14 @@
     "@nestjs/terminus": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "envalid": "^8.0.0",
+    "http-system-logger": "^1.0.8",
     "nestjs-pino": "^4.4.0",
     "pg": "^8.14.1",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.22"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
