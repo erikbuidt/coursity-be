@@ -1,13 +1,18 @@
-import { Module } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
-import { TypeOrmModule, type TypeOrmModuleOptions } from '@nestjs/typeorm'
-import { configuration } from '../config/configuration'
-import { UserModule } from '../api/user/user.module'
-import { HealthModule } from '../modules/health-check/health.module'
-import { AxiosModule } from '@/modules/axios/axios.module'
-import { LoggerModule } from '@/modules/logger/logger.module'
-import { AppInterceptor } from '@/common/interceptors/app.interceptor'
-import { APP_INTERCEPTOR } from '@nestjs/core'
+import { Module } from "@nestjs/common"
+import { ConfigModule, ConfigService } from "@nestjs/config"
+import { TypeOrmModule, type TypeOrmModuleOptions } from "@nestjs/typeorm"
+import { configuration } from "../config/configuration"
+import { UserModule } from "../api/user/user.module"
+import { HealthModule } from "../modules/health-check/health.module"
+import { AxiosModule } from "@/modules/axios/axios.module"
+import { LoggerModule } from "@/modules/logger/logger.module"
+import { AppInterceptor } from "@/common/interceptors/app.interceptor"
+import { APP_INTERCEPTOR } from "@nestjs/core"
+import { ClerkClientProvider } from "@/common/providers/clerk-client.provider"
+import { FileModule } from "@/api/file/file.module"
+import { CourseModule } from "@/api/course/course.module"
+import { LessonModule } from "@/api/lesson/lesson.module"
+import { LearningModule } from "@/api/learning/learning.module"
 
 @Module({
   imports: [
@@ -15,12 +20,12 @@ import { APP_INTERCEPTOR } from '@nestjs/core'
       isGlobal: true,
       cache: true,
       expandVariables: true,
-      envFilePath: ['.env'],
+      envFilePath: [".env"],
       load: [configuration],
     }),
     TypeOrmModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
-        ...config.get<TypeOrmModuleOptions>('db'),
+        ...config.get<TypeOrmModuleOptions>("db"),
       }),
       inject: [ConfigService],
     }),
@@ -28,7 +33,11 @@ import { APP_INTERCEPTOR } from '@nestjs/core'
     HealthModule,
     AxiosModule,
     LoggerModule,
+    FileModule,
+    CourseModule,
+    LessonModule,
+    LearningModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: AppInterceptor }],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: AppInterceptor }, ClerkClientProvider],
 })
 export class AppModule {}

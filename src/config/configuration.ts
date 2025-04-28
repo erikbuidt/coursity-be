@@ -12,6 +12,8 @@ export const configuration = (): ConfigApp => {
     DB_PASSWORD: str(),
     DB_NAME: str(),
     CLERK_API_KEY: str(),
+    CLERK_PUBLISHABLE_KEY: str(),
+    CLERK_SECRET_KEY: str(),
   })
   return {
     env: configEnvValidate.NODE_ENV,
@@ -21,6 +23,8 @@ export const configuration = (): ConfigApp => {
     },
     clerk: {
       apiKey: configEnvValidate.CLERK_API_KEY,
+      publishableKey: configEnvValidate.CLERK_PUBLISHABLE_KEY,
+      secretKey: configEnvValidate.CLERK_SECRET_KEY,
     },
     db: {
       type: "postgres",

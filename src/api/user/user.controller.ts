@@ -6,6 +6,7 @@ import type { UserQueryDto } from "./dto/user-query.dto"
 import type { CreateClerkUser } from "./dto/req/create-clerk-user.dto"
 import { ApiKeyGuard } from "@/common/guards/api-key.guard"
 import { UserRes } from "./dto/res/user-res.dto"
+import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
 
 @Controller("user")
 export class UserController {
@@ -17,6 +18,7 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(ClerkAuthGuard)
   getUsers(@Query() query: UserQueryDto) {
     return this.userService.getUsers(query.page, query.limit)
   }
