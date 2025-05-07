@@ -1,5 +1,5 @@
 import { Env, type IConfig } from "@/common/interfaces/common.interface"
-import { cleanEnv, num, str } from "envalid"
+import { bool, cleanEnv, num, str } from "envalid"
 export type ConfigApp = IConfig
 export const configuration = (): ConfigApp => {
   const configEnvValidate = cleanEnv(process.env, {
@@ -14,6 +14,12 @@ export const configuration = (): ConfigApp => {
     CLERK_API_KEY: str(),
     CLERK_PUBLISHABLE_KEY: str(),
     CLERK_SECRET_KEY: str(),
+    MINIO_ENDPOINT: str({ default: "localhost" }),
+    MINIO_PORT: num({ default: 9000 }),
+    MINIO_ACCESS_KEY: str(),
+    MINIO_SECRET_KEY: str(),
+    MINIO_USE_SSL: bool({ default: false }),
+    MINIO_BUCKET_NAME: str(),
   })
   return {
     env: configEnvValidate.NODE_ENV,
@@ -36,6 +42,14 @@ export const configuration = (): ConfigApp => {
       synchronize: true,
       logging: true,
       entities: ["dist/**/*.entity{.ts,.js}"],
+    },
+    minio: {
+      endPoint: configEnvValidate.MINIO_ENDPOINT,
+      port: configEnvValidate.MINIO_PORT,
+      accessKey: configEnvValidate.MINIO_ACCESS_KEY,
+      secretKey: configEnvValidate.MINIO_SECRET_KEY,
+      useSSL: configEnvValidate.MINIO_USE_SSL,
+      bucketName: configEnvValidate.MINIO_BUCKET_NAME,
     },
   }
 }

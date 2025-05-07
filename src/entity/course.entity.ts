@@ -45,9 +45,6 @@ export class Course extends Base {
   @Column()
   image_url: string
 
-  @Column({ type: "numeric" })
-  duration: number
-
   @Column({ default: false })
   is_free: boolean
 

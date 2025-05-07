@@ -11,6 +11,7 @@ async function bootstrap() {
   const config = app.get(ConfigService)
   app.use(cookieParser()) // Enable cookie-parser middleware
   app.use(httpLogger)
+  app.enableCors()
   //* PLUGIN
   app.setGlobalPrefix("/api")
   //* CONFIG

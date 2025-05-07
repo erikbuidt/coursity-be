@@ -7,12 +7,15 @@ import { HealthModule } from "../modules/health-check/health.module"
 import { AxiosModule } from "@/modules/axios/axios.module"
 import { LoggerModule } from "@/modules/logger/logger.module"
 import { AppInterceptor } from "@/common/interceptors/app.interceptor"
-import { APP_INTERCEPTOR } from "@nestjs/core"
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core"
 import { ClerkClientProvider } from "@/common/providers/clerk-client.provider"
 import { FileModule } from "@/api/file/file.module"
 import { CourseModule } from "@/api/course/course.module"
 import { LessonModule } from "@/api/lesson/lesson.module"
 import { LearningModule } from "@/api/learning/learning.module"
+import { EnrollmentService } from "@/api/enrollment/enrollment.service"
+import { EnrollmentModule } from "@/api/enrollment/enrollment.module"
+import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
 
 @Module({
   imports: [
@@ -33,11 +36,19 @@ import { LearningModule } from "@/api/learning/learning.module"
     HealthModule,
     AxiosModule,
     LoggerModule,
-    FileModule,
+    // FileModule,
     CourseModule,
     LessonModule,
     LearningModule,
+    EnrollmentModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: AppInterceptor }, ClerkClientProvider],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: AppInterceptor },
+    ClerkClientProvider,
+    {
+      provide: APP_GUARD,
+      useClass: ClerkAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

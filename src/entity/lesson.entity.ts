@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
-import { Base } from './base.entity'
-import { Chapter } from './chapter.entity'
-@Entity('lessons')
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm"
+import { Base } from "./base.entity"
+import { Chapter } from "./chapter.entity"
+import { Expose } from "class-transformer"
+@Entity("lessons")
 export class Lesson extends Base {
   @PrimaryGeneratedColumn()
   id: number
@@ -10,10 +11,13 @@ export class Lesson extends Base {
     () => Chapter,
     (chapter) => chapter.lessons,
   )
-  @JoinColumn({ name: 'chapter_id' })
+  @JoinColumn({ name: "chapter_id" })
   chapter: Chapter
 
-  @Column({ type: 'numeric' })
+  @Column()
+  chapter_id: number
+
+  @Column({ type: "numeric" })
   duration: number
 
   @Column()
@@ -27,4 +31,10 @@ export class Lesson extends Base {
 
   @Column()
   title: string
+
+  @Column({ nullable: true })
+  position: number
+
+  @Expose()
+  is_completed?: boolean
 }

@@ -4,7 +4,8 @@ import { CourseService } from "./course.service"
 import { Public } from "@/common/decorators/public.decorator"
 import type { Pagination } from "nestjs-typeorm-paginate"
 import type { Course } from "@/entity/course.entity"
-import type { IPaginationMeta } from "@/common/interfaces/common.interface"
+import type { IPaginationMeta, PublicMetadata } from "@/common/interfaces/common.interface"
+import { User } from "@/common/decorators/user.decorator"
 
 @Controller("courses")
 export class CourseController {
@@ -14,14 +15,21 @@ export class CourseController {
   @Get()
   async getAll(
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
-    @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit: number = 10,
-  ): Promise<Pagination<Course, IPaginationMeta>> {
-    return this.courseService.findAll({ page, limit })
+    @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit: number = 8,
+    @Query("search", new DefaultValuePipe("")) search: string = "",
+  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
+    return this.courseService.findAll({ page, limit }, search)
   }
 
-  @Public()
   @Get(":slug")
-  async getOne(@Param("slug") slug: string) {
-    return this.courseService.fineOne(slug)
+  @Public()
+  async getOne(@Param("slug") slug: string, @User() user: PublicMetadata) {
+    return this.courseService.fineOne(slug, user?.db_user_id)
+  }
+
+  @Get(":slug/progress")
+  @Public()
+  async getCourseProgress(@Param("slug") slug: string, @User() user: PublicMetadata) {
+    return this.courseService.getCourseProgress(slug, user?.db_user_id)
   }
 }

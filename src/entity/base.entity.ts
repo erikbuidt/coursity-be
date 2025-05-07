@@ -1,20 +1,20 @@
 import { Column, CreateDateColumn, DeleteDateColumn, UpdateDateColumn } from "typeorm"
 export class Base {
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   created_by: string
 
-  @CreateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
+  @CreateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP", select: false })
   created_at: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updated_by?: string
 
-  @UpdateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
+  @UpdateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP", select: false })
   updated_at: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   deleted_by?: string
 
-  @DeleteDateColumn({ type: "timestamptz", nullable: true })
+  @DeleteDateColumn({ type: "timestamptz", nullable: true, select: false })
   deleted_at?: Date
 }

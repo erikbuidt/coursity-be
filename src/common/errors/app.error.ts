@@ -3,8 +3,9 @@ import type { IAppError } from "./interface.error"
 export type CommonCode = "FORBIDDEN_ROLE"
 export type UserCode = "USER_NOT_FOUND"
 export type FileCode = "FILE_NOT_FOUND"
+export type CourseCode = "COURSE_NOT_FOUND"
 
-export type AppCode = CommonCode | UserCode | FileCode
+export type AppCode = CommonCode | UserCode | FileCode | CourseCode
 
 export const APP_ERROR: Record<AppCode, IAppError> = {
   FORBIDDEN_ROLE: {
@@ -21,5 +22,10 @@ export const APP_ERROR: Record<AppCode, IAppError> = {
     code: "0002",
     status: 404,
     message: "File not found",
+  },
+  COURSE_NOT_FOUND: {
+    code: "0003",
+    status: 404,
+    message: "Course not found",
   },
 }

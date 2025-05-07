@@ -12,11 +12,14 @@ export class File extends Base {
   @Column()
   mimetype: string
 
+  @Column()
+  destination: string
+
   @Column({ unique: true })
   filename: string
 
-  @Column({ name: "minio_filename" })
-  minioFilename: string
+  @Column()
+  minio_filename: string
 
   @Column()
   path: string
@@ -24,6 +27,6 @@ export class File extends Base {
   @Column({ type: "numeric" })
   size: number
 
-  @Column({ default: false, name: "is_public" })
-  isPublic: boolean
+  @Column({ default: false })
+  is_public: boolean
 }

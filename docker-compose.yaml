@@ -1,0 +1,34 @@
+name: coursity
+services:
+  database:
+    image: postgres:17.2
+    ports: [5432:5432]
+    container_name: database
+    hostname: database
+    restart: always
+    volumes: [database:/var/lib/postgresql/data]
+    env_file: .env
+    networks: [database]
+    environment:
+      POSTGRES_DB: coursity
+      POSTGRES_USER: coursity_user
+      POSTGRES_PASSWORD: coursity_user123!
+  minio:
+    image: bitnami/minio:latest
+    container_name: minio
+    hostname: minio
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    env_file: .env
+    volumes: [minio:/data]
+    networks:
+      - minio
+
+networks:
+  database:
+  minio:
+
+volumes:
+  database:
+  minio:

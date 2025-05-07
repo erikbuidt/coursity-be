@@ -21,8 +21,16 @@ export interface IConfig {
   app: IConfigApp
   db: TypeOrmModuleOptions
   clerk: IClerk
+  minio: MinioOptions
 }
-
+export interface MinioOptions {
+  endPoint: string
+  port: number
+  accessKey: string
+  secretKey: string
+  useSSL: boolean
+  bucketName: string
+}
 export interface IPaginationMeta {
   /**
    * the amount of items on this specific page
