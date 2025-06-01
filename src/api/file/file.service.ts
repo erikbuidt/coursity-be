@@ -12,7 +12,12 @@ import type { CreateFileDto } from "./dto/create-file.dto"
 import type { PublicMetadata } from "@/common/interfaces/common.interface"
 import { randomUUID, createHash } from "crypto"
 import type { Response } from "express"
-import axios from "axios"
+// biome-ignore lint/style/useImportType: <explanation>
+import { HlsService } from "@/modules/hls/hls.service"
+import * as path from "node:path"
+import { PassThrough } from "node:stream"
+import { createReadStream } from "node:fs"
+import { stat } from "node:fs/promises"
 @Injectable()
 export class FileService {
   private minioClient: Minio.Client
@@ -22,6 +27,7 @@ export class FileService {
     private readonly fileRepository: Repository<File>,
 
     private readonly configService: ConfigService,
+    private readonly hlsService: HlsService,
   ) {
     this.minioClient = new Minio.Client({
       endPoint: this.configService.get("minio").endPoint,
@@ -34,14 +40,13 @@ export class FileService {
   }
   async findOne(filename: string, res: Response, isPublic = true) {
     const file = await this.fileRepository.findOne({
-      where: { filename, is_public: isPublic },
+      where: { filename: filename, is_public: isPublic },
     })
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
     }
     res.set({
-      "Content-Type": file.mimetype,
-      // 'Content-Disposition': `attachment; filename="${file.originalname}"`,
+      "Content-Type": file.mimetype, // 'Content-Disposition': `attachment; filename="${file.originalname}"`,
     })
     try {
       const readable = await this.minioClient.getObject(this.bucketName, file.minio_filename)
@@ -166,12 +171,7 @@ export class FileService {
     }
   }
 
-  async completeUpload(
-    bucket: string,
-    filename: string,
-    uploadId: string,
-    parts: { partNumber: number; etag: string }[],
-  ) {
+  async completeUpload(bucket: string, filename: string, uploadId: string, parts: { partNumber: number; etag: string }[]) {
     // Transforming parts to match the required format
     const formattedParts = parts.map((part) => ({
       part: part.partNumber,
@@ -180,5 +180,71 @@ export class FileService {
 
     const result = await this.minioClient.completeMultipartUpload(bucket, filename, uploadId, formattedParts)
     return { message: "Upload completed successfully.", result }
+  }
+
+  async encodeVideo() {
+    // const video = await this.minioClient.getObject(this.bucketName, filename)
+    // const videoBuffer = await video.pipe(new PassThrough())
+    // const encodedVideo = await this.hlsService.encodeHLS(videoBuffer)
+    // return encodedVideo
+    const videoPath = path.resolve(__dirname, "..", "..", "assets", "WebHD_720p.mp4")
+    const rs = await this.hlsService.encodeHLS(videoPath)
+    console.log({ rs })
+    return "ok"
+  }
+
+  async findVideo(filename: string, req: Request, res: Response, isPublic = true) {
+    const range = req.headers["range"]
+    const file = await this.fileRepository.findOne({
+      where: { filename },
+    })
+    if (!file) {
+      throw new AppException(APP_ERROR.FILE_NOT_FOUND)
+    }
+    try {
+      const fileStat = await this.minioClient.statObject(this.bucketName, file.minio_filename)
+      const fileSize = fileStat.size
+      if (range) {
+        // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
+        const [start, end] = this.getRange(range, fileSize)
+        const chunkSize = end - start + 1
+
+        const stream = await this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize)
+
+        res.status(206)
+        res.header({
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunkSize.toString(),
+          "Content-Type": "video/mp4",
+        })
+        stream.pipe(res)
+      }
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        res.status(404).send("Video not found")
+      } else {
+        console.error("Stream error:", error)
+        res.status(500).send("Error streaming video")
+      }
+    }
+  }
+
+  // Helper function to parse range
+  private getRange(range: string, totalSize: number): [number, number] {
+    const parts = range.replace(/bytes=/, "").split("-")
+    const start = Number.parseInt(parts[0], 10)
+    let end = parts[1] ? Number.parseInt(parts[1], 10) : totalSize - 1
+
+    // Validate and fix range values
+    end = Math.min(end, totalSize - 1)
+    if (Number.isNaN(start) || start < 0 || start >= totalSize) {
+      throw new Error("Invalid start of range")
+    }
+    if (Number.isNaN(end) || end < 0 || end >= totalSize || start > end) {
+      throw new Error("Invalid end of range")
+    }
+
+    return [start, end]
   }
 }

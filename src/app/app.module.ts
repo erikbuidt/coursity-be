@@ -14,11 +14,19 @@ import { CourseModule } from "@/api/course/course.module"
 import { LessonModule } from "@/api/lesson/lesson.module"
 import { LearningModule } from "@/api/learning/learning.module"
 import { EnrollmentService } from "@/api/enrollment/enrollment.service"
+import { ServeStaticModule } from "@nestjs/serve-static"
 import { EnrollmentModule } from "@/api/enrollment/enrollment.module"
 import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
+import { HlsModule } from "@/modules/hls/hls.module"
+import { ChapterModule } from "@/api/chapter/chapter.module"
+import { join } from "node:path"
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, "..", "..", "..", "hls_output"),
+      serveRoot: "/hls",
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
@@ -36,11 +44,13 @@ import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
     HealthModule,
     AxiosModule,
     LoggerModule,
-    // FileModule,
+    FileModule,
     CourseModule,
     LessonModule,
     LearningModule,
     EnrollmentModule,
+    HlsModule,
+    ChapterModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AppInterceptor },

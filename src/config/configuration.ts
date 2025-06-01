@@ -20,6 +20,7 @@ export const configuration = (): ConfigApp => {
     MINIO_SECRET_KEY: str(),
     MINIO_USE_SSL: bool({ default: false }),
     MINIO_BUCKET_NAME: str(),
+    IGNORED_ROUTES: str(),
   })
   return {
     env: configEnvValidate.NODE_ENV,
@@ -40,7 +41,7 @@ export const configuration = (): ConfigApp => {
       password: configEnvValidate.DB_PASSWORD,
       database: configEnvValidate.DB_NAME,
       synchronize: true,
-      logging: true,
+      logging: false,
       entities: ["dist/**/*.entity{.ts,.js}"],
     },
     minio: {

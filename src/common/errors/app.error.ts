@@ -4,8 +4,9 @@ export type CommonCode = "FORBIDDEN_ROLE"
 export type UserCode = "USER_NOT_FOUND"
 export type FileCode = "FILE_NOT_FOUND"
 export type CourseCode = "COURSE_NOT_FOUND"
+export type ChapterCode = "CHAPTER_NOT_FOUND"
 
-export type AppCode = CommonCode | UserCode | FileCode | CourseCode
+export type AppCode = CommonCode | UserCode | FileCode | CourseCode | ChapterCode
 
 export const APP_ERROR: Record<AppCode, IAppError> = {
   FORBIDDEN_ROLE: {
@@ -27,5 +28,10 @@ export const APP_ERROR: Record<AppCode, IAppError> = {
     code: "0003",
     status: 404,
     message: "Course not found",
+  },
+  CHAPTER_NOT_FOUND: {
+    code: "0003",
+    status: 404,
+    message: "Chapter not found",
   },
 }

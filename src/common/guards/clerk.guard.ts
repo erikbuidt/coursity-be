@@ -14,10 +14,7 @@ export class ClerkAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>()
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ])
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [context.getHandler(), context.getClass()])
     if (isPublic) {
       await this.attachUserIfTokenExists(req)
       return true
@@ -33,7 +30,6 @@ export class ClerkAuthGuard implements CanActivate {
         // biome-ignore lint/style/noNonNullAssertion: <explanation>
         secretKey: process.env.CLERK_SECRET_KEY!,
       })
-
       if (!session) {
         throw new UnauthorizedException("Invalid token")
       }
@@ -61,7 +57,7 @@ export class ClerkAuthGuard implements CanActivate {
         })
         req["user"] = session.public_metadata
       } catch (err) {
-        console.error("Token verification failed for public route:", err)
+        // console.error("Token verification failed for public route:", err)
       }
     }
   }
