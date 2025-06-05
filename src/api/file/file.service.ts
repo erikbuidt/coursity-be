@@ -13,7 +13,7 @@ import type { PublicMetadata } from "@/common/interfaces/common.interface"
 import { randomUUID, createHash } from "crypto"
 import type { Response } from "express"
 // biome-ignore lint/style/useImportType: <explanation>
-import { HlsService } from "@/modules/hls/hls.service"
+import { FFmpegService } from "@/modules/ffmpeg/ffmpeg.service"
 import * as path from "node:path"
 import { PassThrough } from "node:stream"
 import { createReadStream } from "node:fs"
@@ -27,7 +27,7 @@ export class FileService {
     private readonly fileRepository: Repository<File>,
 
     private readonly configService: ConfigService,
-    private readonly hlsService: HlsService,
+    private readonly ffmpegService: FFmpegService,
   ) {
     this.minioClient = new Minio.Client({
       endPoint: this.configService.get("minio").endPoint,
@@ -187,9 +187,8 @@ export class FileService {
     // const videoBuffer = await video.pipe(new PassThrough())
     // const encodedVideo = await this.hlsService.encodeHLS(videoBuffer)
     // return encodedVideo
-    const videoPath = path.resolve(__dirname, "..", "..", "assets", "WebHD_720p.mp4")
-    const rs = await this.hlsService.encodeHLS(videoPath)
-    console.log({ rs })
+    const videoPath = path.resolve(__dirname, "..", "..", "assets", "4kvideo.mp4")
+    const rs = await this.ffmpegService.generateMp4Resolutions(videoPath)
     return "ok"
   }
 

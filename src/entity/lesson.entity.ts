@@ -17,16 +17,16 @@ export class Lesson extends Base {
   @Column()
   chapter_id: number
 
-  @Column({ type: "numeric" })
+  @Column({ type: "numeric", nullable: true })
   duration: number
 
-  @Column()
+  @Column({ nullable: true })
   video_url: string
 
-  @Column()
+  @Column({ nullable: true })
   image_url: string
 
-  @Column()
+  @Column({ nullable: true })
   video_provider: string
 
   @Column()

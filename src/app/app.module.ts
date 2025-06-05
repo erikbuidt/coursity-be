@@ -17,7 +17,7 @@ import { EnrollmentService } from "@/api/enrollment/enrollment.service"
 import { ServeStaticModule } from "@nestjs/serve-static"
 import { EnrollmentModule } from "@/api/enrollment/enrollment.module"
 import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
-import { HlsModule } from "@/modules/hls/hls.module"
+import { FFmpegModule } from "@/modules/ffmpeg/ffmpeg.module"
 import { ChapterModule } from "@/api/chapter/chapter.module"
 import { join } from "node:path"
 
@@ -49,7 +49,7 @@ import { join } from "node:path"
     LessonModule,
     LearningModule,
     EnrollmentModule,
-    HlsModule,
+    FFmpegModule,
     ChapterModule,
   ],
   providers: [

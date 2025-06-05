@@ -19,10 +19,7 @@ export class ChapterController {
   }
 
   @Get("completed")
-  async getCompletedChapters(
-    @Query("user_id", ParseIntPipe) userId: number,
-    @Query("course_id", ParseIntPipe) courseId: number,
-  ) {
+  async getCompletedChapters(@Query("user_id", ParseIntPipe) userId: number, @Query("course_id", ParseIntPipe) courseId: number) {
     return this.chapterService.getCompletedChapters(userId, courseId)
   }
 
@@ -39,6 +36,7 @@ export class ChapterController {
   }
 
   @Post()
+  @Public()
   async create(@Body() createChapterDto: CreateChapterDto) {
     return this.chapterService.create(createChapterDto)
   }
