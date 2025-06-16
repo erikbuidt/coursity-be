@@ -37,6 +37,9 @@ export class LearningService {
       .orderBy("lesson.position", "ASC")
       .getRawAndEntities()
 
+    console.log({
+      chapters: course.entities[0].chapters,
+    })
     const completedLessonMap = new Map<number, boolean>()
     const chapterCompletedLessonMap = new Map<number, number>() // chapter_id -> count
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -55,15 +58,19 @@ export class LearningService {
 
     // ✅ Set is_completed on each lesson entity
     // biome-ignore lint/complexity/noForEach: <explanation>
-    course.entities[0].chapters.forEach((chapter) => {
-      // biome-ignore lint/complexity/noForEach: <explanation>
-      chapter.lessons.forEach((lesson) => {
-        lesson.is_completed = completedLessonMap.get(lesson.id) || false
-      })
+    course.entities[0].chapters
+      .sort((a, b) => a.position - b.position)
+      .forEach((chapter) => {
+        // biome-ignore lint/complexity/noForEach: <explanation>
+        chapter.lessons
+          .sort((a, b) => a.position - b.position)
+          .forEach((lesson) => {
+            lesson.is_completed = completedLessonMap.get(lesson.id) || false
+          })
 
-      // ✅ Set completed count
-      chapter.chapter_completed_lesson_count = chapterCompletedLessonMap.get(chapter.id) || 0
-    })
+        // ✅ Set completed count
+        chapter.chapter_completed_lesson_count = chapterCompletedLessonMap.get(chapter.id) || 0
+      })
 
     return course.entities[0]
   }
@@ -88,9 +95,7 @@ export class LearningService {
       const totalLessonsInChapter = await manager.getRepository("lessons").count({ where: { chapter_id: chapterId } })
 
       // 3. Count user's completed lessons in this chapter
-      const userCompletedLessons = await manager
-        .getRepository("lesson_complete")
-        .count({ where: { user_id: userId, chapter_id: chapterId } })
+      const userCompletedLessons = await manager.getRepository("lesson_complete").count({ where: { user_id: userId, chapter_id: chapterId } })
 
       if (userCompletedLessons === totalLessonsInChapter) {
         // 4. Mark chapter as complete
@@ -103,9 +108,7 @@ export class LearningService {
           .execute()
       }
       // 5. Count total lessons in the course
-      const completedLessonsCount = await manager
-        .getRepository("lesson_complete")
-        .count({ where: { user_id: userId, course_id: courseId } })
+      const completedLessonsCount = await manager.getRepository("lesson_complete").count({ where: { user_id: userId, course_id: courseId } })
 
       const totalLessons = await manager
         .getRepository("lessons")

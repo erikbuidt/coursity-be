@@ -1,14 +1,18 @@
 import { Public } from "@/common/decorators/public.decorator"
 import { User } from "@/common/decorators/user.decorator"
 import type { PublicMetadata } from "@/common/interfaces/common.interface"
-import { Body, Controller, Get, Param, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common"
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
 // biome-ignore lint/style/useImportType: <explanation>
 import { LearningService } from "../learning/learning.service"
-import type { CreateLessonDto } from "./dto/create-lesson.dto"
-import type { UpdateLessonDto } from "./dto/update-lesson.dto"
+// biome-ignore lint/style/useImportType: <explanation>
+import { CreateLessonDto } from "./dto/create-lesson.dto"
+// biome-ignore lint/style/useImportType: <explanation>
+import { UpdateLessonDto } from "./dto/update-lesson.dto"
 // biome-ignore lint/style/useImportType: <explanation>
 import { LessonService } from "./lesson.service"
+// biome-ignore lint/style/useImportType: <explanation>
+import { BulkUpdateLessonDto } from "./dto/bulk-update-lesson.dto"
 
 @Controller("lessons")
 export class LessonController {
@@ -37,21 +41,25 @@ export class LessonController {
   }
 
   @Post()
-  @Public()
-  async createLesson(@Body() dto: CreateLessonDto) {
-    return this.lessonService.create(dto)
+  @UseInterceptors(FileInterceptor("video_file"))
+  async createLesson(@Body() dto: CreateLessonDto, @UploadedFile() file: Express.Multer.File) {
+    return this.lessonService.create(dto, file)
   }
 
   @Put(":id")
-  @Public()
-  async updateLesson(@Param("id") id: number, @Body() dto: UpdateLessonDto) {
-    return this.lessonService.update(id, dto)
+  @UseInterceptors(FileInterceptor("video_file"))
+  async updateLesson(@Param("id") id: number, @Body() dto: UpdateLessonDto, @UploadedFile() file: Express.Multer.File) {
+    return this.lessonService.update(id, dto, file)
   }
 
   @Post(":lessonId/video")
-  @Public()
   @UseInterceptors(FileInterceptor("file"))
   async uploadLessonVideo(@Param("lessonId") lessonId: number, @UploadedFile() file: Express.Multer.File) {
     return this.lessonService.uploadVideo(lessonId, file)
+  }
+
+  @Patch("/positions")
+  async updateLessonPosition(@Body() bulkUpdateLessonDto: BulkUpdateLessonDto) {
+    return this.lessonService.updateLessonPositions(bulkUpdateLessonDto)
   }
 }

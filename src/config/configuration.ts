@@ -41,7 +41,7 @@ export const configuration = (): ConfigApp => {
       password: configEnvValidate.DB_PASSWORD,
       database: configEnvValidate.DB_NAME,
       synchronize: true,
-      logging: false,
+      logging: true,
       entities: ["dist/**/*.entity{.ts,.js}"],
     },
     minio: {

@@ -5,9 +5,10 @@ import { CourseController } from "./course.controller"
 import { CourseService } from "./course.service"
 import { Enrollment } from "@/entity/enrollment.entity"
 import { CourseProgress } from "@/entity/course-progress.entity"
+import { FileModule } from "../file/file.module"
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Course, Enrollment, CourseProgress])],
+  imports: [TypeOrmModule.forFeature([Course, Enrollment, CourseProgress]), FileModule],
   controllers: [CourseController],
   providers: [CourseService],
   exports: [CourseService],

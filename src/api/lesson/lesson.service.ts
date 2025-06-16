@@ -9,6 +9,10 @@ import type { UpdateLessonDto } from "./dto/update-lesson.dto"
 import { FileService } from "../file/file.service"
 // biome-ignore lint/style/useImportType: <explanation>
 import { FFmpegService } from "@/modules/ffmpeg/ffmpeg.service"
+import type { BulkUpdateLessonDto } from "./dto/bulk-update-lesson.dto"
+import { AppException } from "@/common/errors/exception.error"
+import { APP_ERROR } from "@/common/errors/app.error"
+import { Chapter } from "@/entity/chapter.entity"
 
 @Injectable()
 export class LessonService {
@@ -36,17 +40,50 @@ export class LessonService {
     })
   }
 
-  async create(dto: CreateLessonDto) {
-    const chapter = await this.lessonRepository.manager.findOne(Lesson, { where: { id: dto.chapter_id } })
-    if (!chapter) throw new Error("Chapter not found")
-    const lesson = this.lessonRepository.create(dto)
+  async create(dto: CreateLessonDto, file?: Express.Multer.File) {
+    const chapter = await this.lessonRepository.manager.findOne(Chapter, { where: { id: dto.chapter_id }, relations: ["course"] })
+    if (!chapter) throw new AppException(APP_ERROR.CHAPTER_NOT_FOUND)
+    chapter.chapter_lesson_count += 1
+    const lesson = this.lessonRepository.create({
+      ...dto,
+      position: chapter.chapter_lesson_count,
+    })
+    if (file) {
+      const fileInfo = await this.fileService.create(
+        {
+          sub_bucket: `courses/${chapter.course.slug}`,
+          is_public: false,
+        },
+        file,
+      )
+      const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
+      lesson.video_url = `http://localhost:4000/api/v1/files/video/${fileInfo.filename}`
+      lesson.duration = duration // Assuming file.filename is the uploaded video URL
+    }
+    await this.lessonCompleteRepository.manager.save(chapter)
     return this.lessonRepository.save(lesson)
   }
 
-  async update(id: number, dto: UpdateLessonDto) {
-    const lesson = await this.lessonRepository.findOne({ where: { id } })
-    if (!lesson) throw new Error("Lesson not found")
+  async update(id: number, dto: UpdateLessonDto, file?: Express.Multer.File) {
+    const lesson = await this.lessonRepository.findOne({ where: { id }, relations: ["chapter", "chapter.course"] })
+    if (!lesson) throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
+    if (!lesson.chapter || !lesson.chapter.course) throw new Error("Chapter or Course not found for the lesson")
     Object.assign(lesson, dto)
+
+    // Here you would typically upload the file to your storage (e.g., Minio, S3)
+    if (file) {
+      const fileInfo = await this.fileService.create(
+        {
+          sub_bucket: `courses/${lesson.chapter.course.slug}`,
+          is_public: false,
+        },
+        file,
+      )
+      const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
+      lesson.video_url = `http://localhost:4000/api/v1/files/video/${fileInfo.filename}`
+      lesson.duration = duration // Assuming file.filename is the uploaded video URL
+    }
+
     return this.lessonRepository.save(lesson)
   }
 
@@ -77,5 +114,15 @@ export class LessonService {
       duration: 0, // Placeholder for duration, should be calculated
       video_provider: "system", // Placeholder for video provider
     }
+  }
+
+  async updateLessonPositions(bulkUpdateLessonDto: BulkUpdateLessonDto) {
+    const results: Lesson[] = []
+    for (const lesson of bulkUpdateLessonDto.lessons) {
+      const { id, ...updateDto } = lesson
+      const updated = await this.update(id, updateDto)
+      results.push(updated)
+    }
+    return results
   }
 }

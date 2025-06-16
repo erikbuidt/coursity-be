@@ -2,10 +2,12 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, U
 // biome-ignore lint/style/useImportType: <explanation>
 import { ChapterService } from "./chapter.service"
 import type { CreateChapterDto } from "./dto/create-chapter.dto"
-import type { UpdateChapterDto } from "./dto/update-chapter.dto"
+import type { UpdateOneChapterDto } from "./dto/update-chapter.dto"
 import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
 import { Public } from "@/common/decorators/public.decorator"
 import { ApiTags } from "@nestjs/swagger"
+// biome-ignore lint/style/useImportType: <explanation>
+import { BulkUpsertChapterDto } from "./dto/bulk-upsert-chapter.dto"
 
 @ApiTags("chapters")
 @Controller("chapters")
@@ -36,14 +38,18 @@ export class ChapterController {
   }
 
   @Post()
-  @Public()
   async create(@Body() createChapterDto: CreateChapterDto) {
     return this.chapterService.create(createChapterDto)
   }
 
   @Put(":id")
-  async update(@Param("id", ParseIntPipe) id: number, @Body() updateChapterDto: UpdateChapterDto) {
+  async update(@Param("id", ParseIntPipe) id: number, @Body() updateChapterDto: UpdateOneChapterDto) {
     return this.chapterService.update(id, updateChapterDto)
+  }
+
+  @Post("course/:courseId")
+  async bulkUpdate(@Param("courseId", ParseIntPipe) courseId: number, @Body() bulkUpsertChapterDto: BulkUpsertChapterDto) {
+    return this.chapterService.upsertChapters(courseId, bulkUpsertChapterDto)
   }
 
   @Delete(":id")

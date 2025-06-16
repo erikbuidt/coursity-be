@@ -19,7 +19,6 @@ export class EnrollmentService {
   ) {}
 
   async findAll(user: PublicMetadata) {
-    console.log({ user })
     return this.enrollmentRepository.find({ where: { user_id: user.db_user_id }, relations: ["course"] })
   }
 

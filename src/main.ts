@@ -1,6 +1,6 @@
 import { NestFactory } from "@nestjs/core"
 import { ConfigService } from "@nestjs/config"
-import { VersioningType } from "@nestjs/common"
+import { ValidationPipe, VersioningType } from "@nestjs/common"
 import { AppModule } from "./app/app.module"
 import type { IConfigApp } from "./common/interfaces/common.interface"
 import { httpLogger } from "http-system-logger"
@@ -9,6 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
   const config = app.get(ConfigService)
+  app.useGlobalPipes(new ValidationPipe())
   app.use(cookieParser()) // Enable cookie-parser middleware
   app.use(httpLogger)
   app.enableCors()

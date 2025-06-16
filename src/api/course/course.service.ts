@@ -10,6 +10,10 @@ import { Enrollment } from "@/entity/enrollment.entity"
 import { AppException } from "@/common/errors/exception.error"
 import { APP_ERROR } from "@/common/errors/app.error"
 import { CourseProgress } from "@/entity/course-progress.entity"
+// biome-ignore lint/style/useImportType: <explanation>
+import { CreateCourseDto } from "./dto/create-course.dto"
+// biome-ignore lint/style/useImportType: <explanation>
+import { FileService } from "../file/file.service"
 @Injectable()
 export class CourseService {
   constructor(
@@ -17,14 +21,12 @@ export class CourseService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(CourseProgress)
     private readonly courseProgressRepository: Repository<CourseProgress>,
-
     @InjectRepository(Enrollment)
     private readonly enrollmentRepository: Repository<Enrollment>,
+
+    private readonly fileService: FileService,
   ) {}
-  async findAll(
-    options: IPaginationOptions,
-    search?: string,
-  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
+  async findAll(options: IPaginationOptions, search?: string): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
     const queryBuilder = this.courseRepository
       .createQueryBuilder("course")
       .leftJoin("course.chapters", "chapter")
@@ -59,10 +61,7 @@ export class CourseService {
       meta: toSnakeCaseMeta(rawPagination.meta),
     }
   }
-  async fineOne(
-    slug: string,
-    userId?: number,
-  ): Promise<Course & { duration: number; lesson_count: number; is_enrolled: boolean }> {
+  async fineOne(slug: string, userId?: number): Promise<Course & { duration: number; lesson_count: number; is_enrolled: boolean }> {
     const course = await this.courseRepository
       .createQueryBuilder("course")
       .leftJoinAndSelect("course.chapters", "chapter")
@@ -74,6 +73,7 @@ export class CourseService {
         "course.description",
         "course.price",
         "course.slug",
+        "course.image_url",
         "course.discount_price",
         "course.will_learns",
         "course.requirements",
@@ -85,10 +85,12 @@ export class CourseService {
         "lesson.duration",
         "lesson.image_url",
         "lesson.video_provider",
+        "lesson.video_url",
         "lesson.chapter_id",
       ])
+      .orderBy("chapter.position", "ASC")
+      .addOrderBy("lesson.position", "ASC")
       .getOne()
-
     const countAndSum = await this.courseRepository
       .createQueryBuilder("course")
       .leftJoin("course.chapters", "chapter")
@@ -114,6 +116,45 @@ export class CourseService {
       lesson_count: countAndSum.lesson_count,
       is_enrolled: Boolean(enrollment),
     }
+  }
+
+  async create(createCourseDto: CreateCourseDto, thumbnail: Express.Multer.File, userId: number) {
+    const slug = createCourseDto.title.replace(/\s+/g, "-").toLowerCase()
+    const fileInfo = await this.fileService.create(
+      {
+        sub_bucket: `courses/${slug}`,
+        is_public: true,
+      },
+      thumbnail,
+    )
+    const newCourse = this.courseRepository.create({
+      title: createCourseDto.title,
+      description: createCourseDto.description,
+      price: createCourseDto.price,
+      category: createCourseDto.category,
+      slug: slug,
+      image_url: `http://localhost:4000/api/v1/files/${fileInfo.filename}`,
+      updated_by: userId?.toString() || "admin",
+      created_by: userId?.toString() || "admin",
+    })
+    return this.courseRepository.save(newCourse)
+  }
+  async update(slug: string, dto: Partial<Course>, thumbnail: Express.Multer.File, userId: number) {
+    const course = await this.courseRepository.findOne({ where: { slug } })
+    if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
+    if (thumbnail) {
+      const fileInfo = await this.fileService.create(
+        {
+          sub_bucket: `courses/${slug}`,
+          is_public: true,
+        },
+        thumbnail,
+      )
+      dto.image_url = `http://localhost:4000/api/v1/files/${fileInfo.filename}`
+    }
+    dto.updated_by = userId?.toString() || "admin"
+    Object.assign(course, dto)
+    return this.courseRepository.save(course)
   }
 
   async getCourseProgress(slug: string, userId: number) {

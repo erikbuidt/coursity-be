@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger"
-import { IsNumber, IsOptional, IsString, Min } from "class-validator"
+import { IsBoolean, IsNumber, IsOptional, IsString, Min } from "class-validator"
 
-export class UpdateChapterDto {
+export class UpdateOneChapterDto {
   @ApiProperty({ example: "Introduction to NestJS", description: "Chapter title" })
   @IsString()
   @IsOptional()
