@@ -1,7 +1,7 @@
 import { Public } from "@/common/decorators/public.decorator"
 import { User } from "@/common/decorators/user.decorator"
 import type { PublicMetadata } from "@/common/interfaces/common.interface"
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common"
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
 // biome-ignore lint/style/useImportType: <explanation>
 import { LearningService } from "../learning/learning.service"
@@ -61,5 +61,10 @@ export class LessonController {
   @Patch("/positions")
   async updateLessonPosition(@Body() bulkUpdateLessonDto: BulkUpdateLessonDto) {
     return this.lessonService.updateLessonPositions(bulkUpdateLessonDto)
+  }
+
+  @Delete(":id")
+  async remove(@Param("id", ParseIntPipe) id: number, @User() user: PublicMetadata) {
+    return this.lessonService.remove(id, user.db_user_id)
   }
 }

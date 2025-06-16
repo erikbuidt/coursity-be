@@ -20,6 +20,7 @@ import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
 import { FFmpegModule } from "@/modules/ffmpeg/ffmpeg.module"
 import { ChapterModule } from "@/api/chapter/chapter.module"
 import { join } from "node:path"
+import { AuditSubscriber } from "@/common/providers/entity-subscriber.provider"
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { join } from "node:path"
       provide: APP_GUARD,
       useClass: ClerkAuthGuard,
     },
+    AuditSubscriber
   ],
 })
 export class AppModule {}

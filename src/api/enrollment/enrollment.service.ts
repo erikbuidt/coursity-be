@@ -25,8 +25,7 @@ export class EnrollmentService {
   async create(createEnrollmentDto: CreateEnrollmentDto, user: PublicMetadata) {
     const course = await this.courseRepository.findOne({ where: { id: createEnrollmentDto.course_id } })
     if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
-
-    if (course.is_free) {
+    if (course.is_free || +course.price === 0) {
       const newEnrollment = this.enrollmentRepository.create({
         course_id: createEnrollmentDto.course_id,
         user_id: user.db_user_id,

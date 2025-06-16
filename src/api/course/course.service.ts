@@ -86,6 +86,7 @@ export class CourseService {
         "lesson.image_url",
         "lesson.video_provider",
         "lesson.video_url",
+        "lesson.position",
         "lesson.chapter_id",
       ])
       .orderBy("chapter.position", "ASC")

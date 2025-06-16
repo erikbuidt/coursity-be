@@ -125,4 +125,31 @@ export class LessonService {
     }
     return results
   }
+
+  async remove(lessonId: number, userId: number) {
+    // Find the lesson to ensure it exists
+    const lesson = await this.lessonRepository.findOne({ where: { id: lessonId } })
+    if (!lesson) {
+      throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
+    }
+
+    // Soft delete the lesson
+    const updateResult = await this.lessonRepository.softDelete(lessonId)
+
+    if (updateResult.affected === 0) {
+      throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
+    }
+
+    // Update the chapter's lesson count
+    const lessonCount = await this.lessonRepository.count({
+      where: { chapter_id: lesson.chapter_id },
+    })
+    
+    await this.lessonRepository.manager.update(Chapter, lesson.chapter_id, {
+      chapter_lesson_count: lessonCount,
+    })
+
+    // Return the deleted lesson ID
+    return { lesson_id: lessonId }
+  }
 }
