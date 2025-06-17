@@ -37,9 +37,6 @@ export class LearningService {
       .orderBy("lesson.position", "ASC")
       .getRawAndEntities()
 
-    console.log({
-      chapters: course.entities[0].chapters,
-    })
     const completedLessonMap = new Map<number, boolean>()
     const chapterCompletedLessonMap = new Map<number, number>() // chapter_id -> count
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>

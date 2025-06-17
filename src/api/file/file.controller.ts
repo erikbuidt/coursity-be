@@ -55,8 +55,6 @@ export class FileController {
     },
   ) {
     const { bucket, filename, upload_id, parts } = body
-    console.log("here")
-    console.log({ bucket, filename, upload_id, parts: parts.length })
     if (!bucket || !filename || !upload_id || !Array.isArray(parts) || parts.length === 0) {
       throw new BadRequestException("Invalid request payload")
     }

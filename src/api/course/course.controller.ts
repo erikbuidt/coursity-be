@@ -70,7 +70,6 @@ export class CourseController {
     @UploadedFile() file: Express.Multer.File,
     @User() user: PublicMetadata,
   ) {
-    console.log({ updateCourseDto })
     return this.courseService.update(slug, updateCourseDto, file, user?.db_user_id)
   }
 

@@ -16,7 +16,6 @@ export class AppInterceptor<T> implements NestInterceptor<T> {
     res.header('x-request-id', req.id)
     return new Observable<IApiPassedRes<T>>((subscriber) => {
       RequestContext.run({ userId }, () => {
-        console.log('[RequestContext] Running for user:', userId);
         next.handle().pipe(
           map((data: T) => this.formatResponse(data)),
         ).subscribe({

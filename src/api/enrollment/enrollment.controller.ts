@@ -17,7 +17,6 @@ export class EnrollmentController {
 
   @Post()
   create(@Body() createEnrollmentDto: CreateEnrollmentDto, @User() user: PublicMetadata) {
-    console.log({ createEnrollmentDto })
     return this.enrollmentService.create(createEnrollmentDto, user)
   }
 }

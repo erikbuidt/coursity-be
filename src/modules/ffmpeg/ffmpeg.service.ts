@@ -135,7 +135,6 @@ export class FFmpegService {
     const original = await this.getResolution(inputPath)
     const targetResolutions = this.getTargetResolutions(original.height)
     for (const height of targetResolutions) {
-      console.log(height)
       const width = this.getWidth(height, original)
       const outFile = path.join(outputDir, `output_${width}x${height}.mp4`)
       // Build ffmpeg args

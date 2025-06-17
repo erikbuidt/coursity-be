@@ -136,8 +136,6 @@ export class FileService {
 
   async uploadChunk(bucket: string, filename: string, uploadId: string, partNumber: number, chunk: Buffer) {
     try {
-      console.log("Uploading part:", { partNumber, size: chunk.length })
-
       // Setting required headers (Content-MD5 is recommended)
       const md5Hash = createHash("md5").update(chunk).digest("base64")
 
@@ -154,9 +152,6 @@ export class FileService {
 
       // Use the MinIO SDK's uploadPart method
       const result = await this.minioClient.uploadPart(partConfig, chunk)
-
-      // Debugging: Log the raw result
-      console.log("Upload part raw result:", result)
 
       if (!result || !result.etag) {
         console.error("Upload Part Error: Missing ETag in response")
