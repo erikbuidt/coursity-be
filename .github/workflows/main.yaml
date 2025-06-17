@@ -42,7 +42,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/Dockerfile.main
+          file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: erikbuidt/coursity-be:latest
 
