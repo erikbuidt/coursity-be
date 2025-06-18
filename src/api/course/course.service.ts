@@ -134,7 +134,7 @@ export class CourseService {
       price: createCourseDto.price,
       category: createCourseDto.category,
       slug: slug,
-      image_url: `http://localhost:4000/api/v1/files/${fileInfo.filename}`,
+      image_url: `https://api.coursity.io.vn//api/v1/files/${fileInfo.filename}`,
       updated_by: userId?.toString() || "admin",
       created_by: userId?.toString() || "admin",
     })
@@ -151,7 +151,7 @@ export class CourseService {
         },
         thumbnail,
       )
-      dto.image_url = `http://localhost:4000/api/v1/files/${fileInfo.filename}`
+      dto.image_url = `https://api.coursity.io.vn//api/v1/files/${fileInfo.filename}`
     }
     dto.updated_by = userId?.toString() || "admin"
     Object.assign(course, dto)

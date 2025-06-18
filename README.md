@@ -112,3 +112,17 @@ For production deployment, refer to the [NestJS deployment documentation](https:
 ## License
 
 This project is licensed under the MIT License.
+
+
+## Backup and restore database
+
+### backup
+
+
+$ docker exec -i database pg_dump -U postgres postgres > postgres_dump.sql
+
+
+### restore
+
+
+$ docker exec -i database psql -U postgres postgres < postgres_dump.sql

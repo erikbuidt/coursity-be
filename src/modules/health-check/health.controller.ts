@@ -1,11 +1,5 @@
 import { Public } from "@/common/decorators/public.decorator"
-import {
-  BadGatewayException,
-  BadRequestException,
-  Controller,
-  GatewayTimeoutException,
-  Get,
-} from "@nestjs/common"
+import { BadGatewayException, BadRequestException, Controller, GatewayTimeoutException, Get } from "@nestjs/common"
 // biome-ignore lint/style/useImportType: <explanation>
 import {
   HealthCheck,
@@ -26,9 +20,7 @@ import { Logger } from "http-system-logger"
  */
 @Controller()
 export class HealthController {
-  private readonly logger = new Logger(
-    HealthController.name,
-  )
+  private readonly logger = new Logger(HealthController.name)
   constructor(
     private health: HealthCheckService,
     private http: HttpHealthIndicator,
@@ -41,13 +33,8 @@ export class HealthController {
   @HealthCheck()
   public async executeHealthCheck(): Promise<HealthCheckResult> {
     return await this.health.check([
-      async (): Promise<HealthIndicatorResult> =>
-        await this.http.pingCheck(
-          "dns",
-          "https://1.1.1.1",
-        ),
-      async (): Promise<HealthIndicatorResult> =>
-        await this.db.pingCheck("database"),
+      async (): Promise<HealthIndicatorResult> => await this.http.pingCheck("dns", "https://1.1.1.1"),
+      async (): Promise<HealthIndicatorResult> => await this.db.pingCheck("database"),
     ])
   }
   @Public()
@@ -56,9 +43,7 @@ export class HealthController {
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   public hello(): Promise<any> {
     this.logger.info("hello")
-    return this.axios.get(
-      "http://localhost:4000/api/v1/500",
-    )
+    return this.axios.get("https://api.coursity.io.vn//api/v1/500")
   }
 
   @Get("500")
