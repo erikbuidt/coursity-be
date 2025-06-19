@@ -192,6 +192,7 @@ export class FileService {
     const file = await this.fileRepository.findOne({
       where: { filename },
     })
+    console.log({ file })
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
     }
@@ -204,7 +205,7 @@ export class FileService {
         const chunkSize = end - start + 1
 
         const stream = await this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize)
-
+        console.log("streaming video")
         res.status(206)
         res.header({
           "Content-Range": `bytes ${start}-${end}/${fileSize}`,
