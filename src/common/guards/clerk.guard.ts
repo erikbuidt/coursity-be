@@ -26,6 +26,7 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     try {
+      console.log({ token, key: process.env.CLERK_SECRET_KEY })
       const session = await verifyToken(token, {
         // biome-ignore lint/style/noNonNullAssertion: <explanation>
         secretKey: process.env.CLERK_SECRET_KEY!,
