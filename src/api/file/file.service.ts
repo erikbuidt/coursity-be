@@ -193,6 +193,7 @@ export class FileService {
       where: { filename },
     })
     console.log({ file })
+
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
     }
@@ -203,7 +204,9 @@ export class FileService {
         // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
         const [start, end] = this.getRange(range, fileSize)
         const chunkSize = end - start + 1
-
+        console.log("Range:", range)
+        console.log("Start/End/ChunkSize:", start, end, chunkSize)
+        console.log("StatObject result:", fileStat)
         const stream = await this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize)
         console.log("streaming video")
         res.status(206)
