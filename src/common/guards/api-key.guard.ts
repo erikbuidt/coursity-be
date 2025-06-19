@@ -10,6 +10,8 @@ export class ApiKeyGuard implements CanActivate {
     if (!apiKey) {
       return false
     }
+    console.log("API_KEY", apiKey)
+    console.log("CLERK_API_KEY", process.env.CLERK_API_KEY)
     return apiKey === process.env.CLERK_API_KEY
   }
 }
