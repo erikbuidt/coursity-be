@@ -2,7 +2,7 @@
 # BUILD FOR LOCAL DEVELOPMENT
 ###################
 
-FROM node:22-alpine As development
+FROM erikbuidt/node-ffmpeg:22-alpine AS development
 
 WORKDIR /usr/src/app
 
@@ -18,20 +18,17 @@ USER node
 # BUILD FOR PRODUCTION
 ###################
 
-FROM node:22-alpine As build
+FROM erikbuidt/node-ffmpeg:22-alpine AS build
 
 WORKDIR /usr/src/app
 
 COPY --chown=node:node package*.json ./
-
 COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modules
-
 COPY --chown=node:node . .
 
 RUN npm run build
 
-ENV NODE_ENV production
-
+ENV NODE_ENV=production
 RUN npm install
 
 USER node
@@ -40,9 +37,11 @@ USER node
 # PRODUCTION
 ###################
 
-FROM node:22-alpine As production
+FROM erikbuidt/node-ffmpeg:22-alpine AS production
+
+WORKDIR /usr/src/app
 
 COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
 COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 
-CMD [ "node", "dist/src/main.js" ]
+CMD ["node", "dist/src/main.js"]
