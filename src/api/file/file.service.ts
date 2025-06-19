@@ -211,8 +211,12 @@ export class FileService {
         // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
         const [start, end] = this.getRange(range, fileSize)
         const chunkSize = end - start + 1
+        console.log({ start, end, chunkSize })
 
-        const stream = await this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize)
+        const stream: any = await Promise.race([
+          this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("MinIO getPartialObject timeout")), 5000)),
+        ])
         res.status(206)
         res.header({
           "Content-Range": `bytes ${start}-${end}/${fileSize}`,
