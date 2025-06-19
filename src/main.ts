@@ -12,7 +12,10 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe())
   app.use(cookieParser()) // Enable cookie-parser middleware
   app.use(httpLogger)
-  app.enableCors()
+  app.enableCors({
+    origin: "https://coursity.io.vn", // or use a function if you support multiple domains
+    credentials: true,
+  })
   //* PLUGIN
   app.setGlobalPrefix("/api")
   //* CONFIG

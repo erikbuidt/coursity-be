@@ -36,13 +36,6 @@ export class FileService {
       accessKey: this.configService.get("minio").accessKey,
       secretKey: this.configService.get("minio").secretKey,
     })
-    console.log({
-      endPoint: this.configService.get("minio").endPoint,
-      port: Number(this.configService.get("minio").port),
-      useSSL: this.configService.get("minio").useSSL,
-      accessKey: this.configService.get("minio").accessKey,
-      secretKey: this.configService.get("minio").secretKey,
-    })
     this.bucketName = this.configService.get("minio").bucketName
   }
   async findOne(filename: string, res: Response, isPublic = true) {
@@ -198,7 +191,6 @@ export class FileService {
     const file = await this.fileRepository.findOne({
       where: { filename },
     })
-    console.log({ file })
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("MinIO statObject timeout")), 5000))
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
@@ -206,12 +198,10 @@ export class FileService {
     try {
       const fileStat: any = await Promise.race([this.minioClient.statObject(this.bucketName, file.minio_filename), timeout])
       const fileSize = fileStat.size
-      console.log({ fileSize, range })
       if (range) {
         // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
         const [start, end] = this.getRange(range, fileSize)
         const chunkSize = end - start + 1
-        console.log({ start, end, chunkSize })
 
         const stream: any = await Promise.race([
           this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize),

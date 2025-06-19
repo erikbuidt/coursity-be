@@ -42,6 +42,8 @@ export class UserController {
   @Public()
   @UseGuards(ApiKeyGuard)
   async createUserFromClerk(@Body() data: CreateClerkUser): Promise<User> {
+    console.log("Create user from clerk")
+    console.log({ data })
     return this.userService.createClerkUser(data)
   }
 
