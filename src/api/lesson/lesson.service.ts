@@ -57,7 +57,7 @@ export class LessonService {
         file,
       )
       const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-      lesson.video_url = `https://api.coursity.io.vn//api/v1/files/video/${fileInfo.filename}`
+      lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
       lesson.duration = duration // Assuming file.filename is the uploaded video URL
     }
     await this.lessonCompleteRepository.manager.save(chapter)
@@ -80,7 +80,7 @@ export class LessonService {
         file,
       )
       const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-      lesson.video_url = `https://api.coursity.io.vn//api/v1/files/video/${fileInfo.filename}`
+      lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
       lesson.duration = duration // Assuming file.filename is the uploaded video URL
     }
 
@@ -105,12 +105,12 @@ export class LessonService {
       file,
     )
     const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-    lesson.video_url = `https://api.coursity.io.vn//api/v1/files/video/${fileInfo.filename}`
+    lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
     lesson.duration = duration // Assuming file.filename is the uploaded video URL
     await this.lessonRepository.save(lesson)
     return {
       lessonId,
-      video_url: `https://api.coursity.io.vn//api/v1/files/video/${fileInfo.filename}`, // Assuming file.filename is the uploaded video URL
+      video_url: `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`, // Assuming file.filename is the uploaded video URL
       duration: 0, // Placeholder for duration, should be calculated
       video_provider: "system", // Placeholder for video provider
     }
