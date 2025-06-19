@@ -68,6 +68,7 @@ export class FileController {
     return this.fileService.encodeVideo()
   }
 
+  @Public()
   @Get("video/:filename")
   @Header("Accept-Ranges", "bytes")
   findVideo(@Param("filename") filename: string, @Req() req: Request, @Res() res: Response) {
