@@ -7,6 +7,7 @@ import type { CreateClerkUser } from "./dto/req/create-clerk-user.dto"
 import { ApiKeyGuard } from "@/common/guards/api-key.guard"
 import { UserRes } from "./dto/res/user-res.dto"
 import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
+import { Public } from "@/common/decorators/public.decorator"
 
 @Controller("user")
 export class UserController {
@@ -18,7 +19,6 @@ export class UserController {
   }
 
   @Get()
-  @UseGuards(ClerkAuthGuard)
   getUsers(@Query() query: UserQueryDto) {
     return this.userService.getUsers(query.page, query.limit)
   }
@@ -39,18 +39,21 @@ export class UserController {
   }
 
   @Post("create-clerk-user")
+  @Public()
   @UseGuards(ApiKeyGuard)
   async createUserFromClerk(@Body() data: CreateClerkUser): Promise<User> {
     return this.userService.createClerkUser(data)
   }
 
   @Put("/update-clerk-user")
+  @Public()
   @UseGuards(ApiKeyGuard)
   async updateUserFromClerk(@Body() data: Partial<CreateClerkUser>): Promise<string> {
     return this.userService.updateClerkUser(data)
   }
 
   @Delete("/delete-clerk-user/:clerkUserId")
+  @Public()
   @UseGuards(ApiKeyGuard)
   async deleteUserFromClerk(@Param("clerkUserId") clerkUserId: string): Promise<string> {
     return this.userService.deleteClerkUser(clerkUserId)
