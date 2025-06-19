@@ -206,7 +206,7 @@ export class FileService {
     try {
       const fileStat: any = await Promise.race([this.minioClient.statObject(this.bucketName, file.minio_filename), timeout])
       const fileSize = fileStat.size
-      console.log({ fileSize })
+      console.log({ fileSize, range })
       if (range) {
         // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
         const [start, end] = this.getRange(range, fileSize)
