@@ -13,12 +13,15 @@ import type { BulkUpdateLessonDto } from "./dto/bulk-update-lesson.dto"
 import { AppException } from "@/common/errors/exception.error"
 import { APP_ERROR } from "@/common/errors/app.error"
 import { Chapter } from "@/entity/chapter.entity"
+// biome-ignore lint/style/useImportType: <explanation>
+import { ConfigService } from "@nestjs/config"
 
 @Injectable()
 export class LessonService {
   constructor(
     private readonly fileService: FileService,
     private readonly ffmpegService: FFmpegService,
+    private readonly configService: ConfigService,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
     @InjectRepository(LessonComplete)
@@ -57,7 +60,9 @@ export class LessonService {
         file,
       )
       const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-      lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
+      const nodeEnv = this.configService.get<string>("NODE_ENV")
+      const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
+      lesson.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
       lesson.duration = duration // Assuming file.filename is the uploaded video URL
     }
     await this.lessonCompleteRepository.manager.save(chapter)
@@ -80,7 +85,9 @@ export class LessonService {
         file,
       )
       const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-      lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
+      const nodeEnv = this.configService.get<string>("NODE_ENV")
+      const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
+      lesson.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
       lesson.duration = duration // Assuming file.filename is the uploaded video URL
     }
 

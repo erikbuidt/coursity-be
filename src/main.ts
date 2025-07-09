@@ -12,8 +12,11 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe())
   app.use(cookieParser()) // Enable cookie-parser middleware
   app.use(httpLogger)
+
+  // Enable CORS for localhost in development
+  const nodeEnv = config.get<string>("NODE_ENV")
   app.enableCors({
-    origin: "https://coursity.io.vn", // or use a function if you support multiple domains
+    origin: nodeEnv === "development" ? ["http://localhost:3000", "http://127.0.0.1:3000"] : "https://coursity.io.vn",
     credentials: true,
   })
   //* PLUGIN

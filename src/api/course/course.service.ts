@@ -4,7 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm"
 // biome-ignore lint/style/useImportType: <explanation>
 import { Repository } from "typeorm"
 import { type IPaginationOptions, paginate, paginateRaw, type Pagination } from "nestjs-typeorm-paginate"
-import { toSnakeCaseMeta } from "@/common/utils/app.util"
+import { generateNameId, toSnakeCaseMeta } from "@/common/utils/app.util"
 import type { IPaginationMeta } from "@/common/interfaces/common.interface"
 import { Enrollment } from "@/entity/enrollment.entity"
 import { AppException } from "@/common/errors/exception.error"
@@ -14,6 +14,11 @@ import { CourseProgress } from "@/entity/course-progress.entity"
 import { CreateCourseDto } from "./dto/create-course.dto"
 // biome-ignore lint/style/useImportType: <explanation>
 import { FileService } from "../file/file.service"
+// biome-ignore lint/style/useImportType: <explanation>
+import { ConfigService } from "@nestjs/config"
+import { v4 as uuidv4 } from "uuid"
+import { COURSE_STATUS } from "@/common/constant/app.constant"
+
 @Injectable()
 export class CourseService {
   constructor(
@@ -25,8 +30,12 @@ export class CourseService {
     private readonly enrollmentRepository: Repository<Enrollment>,
 
     private readonly fileService: FileService,
+    private readonly configService: ConfigService,
   ) {}
-  async findAll(options: IPaginationOptions, search?: string): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
+  async findAll(
+    options: IPaginationOptions & { status?: COURSE_STATUS },
+    search?: string,
+  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
     const queryBuilder = this.courseRepository
       .createQueryBuilder("course")
       .leftJoin("course.chapters", "chapter")
@@ -44,7 +53,9 @@ export class CourseService {
       ])
       .groupBy("course.id")
       .orderBy("course.created_at", "DESC")
-
+    if (options.status) {
+      queryBuilder.andWhere("course.status =:status", { status: options.status })
+    }
     if (search) {
       queryBuilder.where("course.title ILIKE :search", {
         search: `%${search}%`,
@@ -73,7 +84,9 @@ export class CourseService {
         "course.description",
         "course.price",
         "course.slug",
+        "course.status",
         "course.image_url",
+        "course.promotion_video_url",
         "course.discount_price",
         "course.will_learns",
         "course.requirements",
@@ -120,7 +133,7 @@ export class CourseService {
   }
 
   async create(createCourseDto: CreateCourseDto, thumbnail: Express.Multer.File, userId: number) {
-    const slug = createCourseDto.title.replace(/\s+/g, "-").toLowerCase()
+    const slug = generateNameId({ name: createCourseDto.title, id: uuidv4() })
     const fileInfo = await this.fileService.create(
       {
         sub_bucket: `courses/${slug}`,
@@ -128,22 +141,33 @@ export class CourseService {
       },
       thumbnail,
     )
+    const nodeEnv = this.configService.get<string>("NODE_ENV")
+    const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
     const newCourse = this.courseRepository.create({
       title: createCourseDto.title,
       description: createCourseDto.description,
       price: createCourseDto.price,
       category: createCourseDto.category,
       slug: slug,
-      image_url: `https://api.coursity.io.vn/api/v1/files/${fileInfo.filename}`,
+      image_url: `${host}/api/v1/files/${fileInfo.filename}`,
       updated_by: userId?.toString() || "admin",
       created_by: userId?.toString() || "admin",
     })
     return this.courseRepository.save(newCourse)
   }
-  async update(slug: string, dto: Partial<Course>, thumbnail: Express.Multer.File, userId: number) {
+  async update(
+    slug: string,
+    dto: Partial<Course>,
+    thumbnail: Express.Multer.File | undefined,
+    promotionVideo: Express.Multer.File | undefined,
+    userId: number,
+  ) {
+    console.log({ promotionVideo })
     const course = await this.courseRepository.findOne({ where: { slug } })
     if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
     if (thumbnail) {
+      const nodeEnv = this.configService.get<string>("NODE_ENV")
+      const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
       const fileInfo = await this.fileService.create(
         {
           sub_bucket: `courses/${slug}`,
@@ -151,10 +175,24 @@ export class CourseService {
         },
         thumbnail,
       )
-      dto.image_url = `https://api.coursity.io.vn/api/v1/files/${fileInfo.filename}`
+      dto.image_url = `${host}/api/v1/files/${fileInfo.filename}`
+    }
+
+    if (promotionVideo) {
+      const nodeEnv = this.configService.get<string>("NODE_ENV")
+      const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
+      const fileInfo = await this.fileService.create(
+        {
+          sub_bucket: `courses/${slug}`,
+          is_public: true,
+        },
+        promotionVideo,
+      )
+      dto.promotion_video_url = `${host}/api/v1/files/${fileInfo.filename}`
     }
     dto.updated_by = userId?.toString() || "admin"
     Object.assign(course, dto)
+    course.status = COURSE_STATUS.DRAFT
     return this.courseRepository.save(course)
   }
 
@@ -168,5 +206,15 @@ export class CourseService {
       },
     })
     return courseProgress
+  }
+
+  async submitToReview(slug: string, userId: number) {
+    const course = await this.courseRepository.findOne({ where: { slug, created_by: userId.toString() } })
+    if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
+    if (course.status !== COURSE_STATUS.DRAFT) {
+      throw new AppException(APP_ERROR.COURSE_NOT_IN_DRAFT_STATUS)
+    }
+    course.status = COURSE_STATUS.IN_REVIEW
+    return this.courseRepository.save(course)
   }
 }

@@ -4,11 +4,12 @@ export type CommonCode = "FORBIDDEN_ROLE"
 export type UserCode = "USER_NOT_FOUND"
 export type FileCode = "FILE_NOT_FOUND"
 export type CourseCode = "COURSE_NOT_FOUND"
+export type CourseNotInDraftStatus = "COURSE_NOT_IN_DRAFT_STATUS"
 export type ChapterCode = "CHAPTER_NOT_FOUND"
 export type LessonCode = "LESSON_NOT_FOUND"
 export type BadRequest = "BAD_REQUEST"
 
-export type AppCode = CommonCode | UserCode | FileCode | CourseCode | ChapterCode | LessonCode | BadRequest
+export type AppCode = CommonCode | CourseNotInDraftStatus | UserCode | FileCode | CourseCode | ChapterCode | LessonCode | BadRequest
 
 export const APP_ERROR: Record<AppCode, IAppError> = {
   USER_NOT_FOUND: {
@@ -44,6 +45,11 @@ export const APP_ERROR: Record<AppCode, IAppError> = {
   BAD_REQUEST: {
     code: "0007",
     status: 409,
+    message: "Bad request",
+  },
+  COURSE_NOT_IN_DRAFT_STATUS: {
+    code: "0008",
+    status: 400,
     message: "Bad request",
   },
 }

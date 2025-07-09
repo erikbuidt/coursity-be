@@ -45,6 +45,9 @@ export class Course extends Base {
   @Column()
   image_url: string
 
+  @Column({ nullable: true })
+  promotion_video_url: string
+
   @Column({ default: false })
   is_free: boolean
 
