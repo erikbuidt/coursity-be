@@ -33,13 +33,14 @@ export class CourseService {
     private readonly configService: ConfigService,
   ) {}
   async findAll(
-    options: IPaginationOptions & { status?: COURSE_STATUS },
+    options: IPaginationOptions & { status?: COURSE_STATUS[] },
     search?: string,
   ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
     const queryBuilder = this.courseRepository
       .createQueryBuilder("course")
       .leftJoin("course.chapters", "chapter")
       .leftJoin("chapter.lessons", "lesson")
+      .leftJoin("course.instructor", "instructor")
       .select([
         "course.id AS id",
         "course.title AS title",
@@ -48,26 +49,29 @@ export class CourseService {
         "course.discount_price AS discount_price",
         "course.slug AS slug",
         "course.image_url AS image_url",
+        "course.status AS status",
+        "instructor.email AS instructor_email",
         "COUNT(lesson.id) AS lesson_count",
         "SUM(lesson.duration) duration",
       ])
       .groupBy("course.id")
+      .addGroupBy("instructor.email")
       .orderBy("course.created_at", "DESC")
-    if (options.status) {
-      queryBuilder.andWhere("course.status =:status", { status: options.status })
+    if (options.status && options.status.length > 0) {
+      queryBuilder.andWhere("course.status IN (:...status)", { status: options.status })
     }
     if (search) {
-      queryBuilder.where("course.title ILIKE :search", {
+      queryBuilder.andWhere("course.title ILIKE :search", {
         search: `%${search}%`,
       })
     }
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    const rawPagination = await paginateRaw<Course & { lesson_count: number }>(queryBuilder as any, options)
-
+    const rawPagination = await paginateRaw<Course & { lesson_count: number; instructor_email: string }>(queryBuilder as any, options)
     return {
       items: rawPagination.items.map((item) => ({
         ...item,
         lesson_count: Number(item.lesson_count),
+        instructor_email: item.instructor_email,
       })),
       meta: toSnakeCaseMeta(rawPagination.meta),
     }

@@ -21,7 +21,7 @@ export class User extends Base {
   password?: string
 
   @Column({ nullable: true })
-  image_url: string
+  image_url?: string
 
   @Column({ default: "student" }) // or 'instructor', 'admin'
   role: string
@@ -30,11 +30,11 @@ export class User extends Base {
     () => CourseProgress,
     (cp) => cp.user,
   )
-  courseProgress: CourseProgress[]
+  courseProgress?: CourseProgress[]
 
   @OneToMany(
     () => Enrollment,
     (enroll) => enroll.user,
   )
-  enrollments: Enrollment[]
+  enrollments?: Enrollment[]
 }

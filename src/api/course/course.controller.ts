@@ -55,7 +55,7 @@ export class CourseController {
     @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit: number = 8,
     @Query("search", new DefaultValuePipe("")) search: string = "",
   ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
-    return this.courseService.findAll({ page, limit, status: COURSE_STATUS.PUBLISHED }, search)
+    return this.courseService.findAll({ page, limit, status: [COURSE_STATUS.PUBLISHED] }, search)
   }
 
   @Get("/all")
@@ -63,8 +63,9 @@ export class CourseController {
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit: number = 8,
     @Query("search", new DefaultValuePipe("")) search: string = "",
+    @Query("status") status?: string,
   ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
-    return this.courseService.findAll({ page, limit }, search)
+    return this.courseService.findAll({ page, limit, status: status ? (status?.split(",") as COURSE_STATUS[]) : [] }, search)
   }
   @Get(":slug")
   @Public()
@@ -104,7 +105,11 @@ export class CourseController {
   async update(
     @Param("slug") slug: string,
     @Body() updateCourseDto: UpdateCourseDto,
-    @UploadedFiles() files: { thumbnail?: Express.Multer.File[]; promotion_video?: Express.Multer.File[] },
+    @UploadedFiles()
+    files: {
+      thumbnail?: Express.Multer.File[]
+      promotion_video?: Express.Multer.File[]
+    },
     @User() user: PublicMetadata,
   ) {
     const thumbnail = files.thumbnail?.[0]
