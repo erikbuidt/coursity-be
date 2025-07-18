@@ -5,7 +5,7 @@ import { InjectRepository } from "@nestjs/typeorm"
 import { Repository } from "typeorm"
 import { type IPaginationOptions, paginate, paginateRaw, type Pagination } from "nestjs-typeorm-paginate"
 import { generateNameId, toSnakeCaseMeta } from "@/common/utils/app.util"
-import type { IPaginationMeta } from "@/common/interfaces/common.interface"
+import type { IPaginationMeta, PublicMetadata } from "@/common/interfaces/common.interface"
 import { Enrollment } from "@/entity/enrollment.entity"
 import { AppException } from "@/common/errors/exception.error"
 import { APP_ERROR } from "@/common/errors/app.error"
@@ -35,6 +35,7 @@ export class CourseService {
   async findAll(
     options: IPaginationOptions & { status?: COURSE_STATUS[] },
     search?: string,
+    user?: PublicMetadata,
   ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
     const queryBuilder = this.courseRepository
       .createQueryBuilder("course")
@@ -59,6 +60,11 @@ export class CourseService {
       .orderBy("course.created_at", "DESC")
     if (options.status && options.status.length > 0) {
       queryBuilder.andWhere("course.status IN (:...status)", { status: options.status })
+    } else {
+      queryBuilder.andWhere("course.status != :status", { status: COURSE_STATUS.DRAFT })
+    }
+    if (user?.db_user_id) {
+      queryBuilder.andWhere("course.instructor_id = :instructor_id", { instructor_id: user.db_user_id })
     }
     if (search) {
       queryBuilder.andWhere("course.title ILIKE :search", {
@@ -154,6 +160,7 @@ export class CourseService {
       category: createCourseDto.category,
       slug: slug,
       image_url: `${host}/api/v1/files/${fileInfo.filename}`,
+      instructor: { id: userId },
       updated_by: userId?.toString() || "admin",
       created_by: userId?.toString() || "admin",
     })

@@ -21,6 +21,7 @@ import { FFmpegModule } from "@/modules/ffmpeg/ffmpeg.module"
 import { ChapterModule } from "@/api/chapter/chapter.module"
 import { join } from "node:path"
 import { AuditSubscriber } from "@/common/providers/entity-subscriber.provider"
+import { InstructorModule } from "@/api/instructor/instructor.module"
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AuditSubscriber } from "@/common/providers/entity-subscriber.provider"
     EnrollmentModule,
     FFmpegModule,
     ChapterModule,
+    InstructorModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AppInterceptor },
@@ -60,7 +62,7 @@ import { AuditSubscriber } from "@/common/providers/entity-subscriber.provider"
       provide: APP_GUARD,
       useClass: ClerkAuthGuard,
     },
-    AuditSubscriber
+    AuditSubscriber,
   ],
 })
 export class AppModule {}

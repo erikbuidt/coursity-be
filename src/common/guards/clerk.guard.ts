@@ -26,11 +26,14 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     try {
-      const session = await verifyToken(token, {
+      const session: any = await verifyToken(token, {
         // biome-ignore lint/style/noNonNullAssertion: <explanation>
         secretKey: process.env.CLERK_SECRET_KEY!,
       })
       if (!session) {
+        throw new UnauthorizedException("Invalid token")
+      }
+      if (!session.public_metadata.db_user_id) {
         throw new UnauthorizedException("Invalid token")
       }
       req["user"] = session.public_metadata
