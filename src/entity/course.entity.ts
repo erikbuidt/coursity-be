@@ -12,6 +12,9 @@ export class Course extends Base {
   @JoinColumn({ name: "instructor_id" })
   instructor: User
 
+  @Column({ name: "instructor_id", nullable: true })
+  instructor_id: number
+
   @Column()
   title: string
 

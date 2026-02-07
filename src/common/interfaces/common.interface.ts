@@ -16,11 +16,16 @@ export interface IClerk {
   publishableKey: string
   secretKey: string
 }
+
+export interface IPermit {
+  apiKey: string
+}
 export interface IConfig {
   env: Env
   app: IConfigApp
   db: TypeOrmModuleOptions
   clerk: IClerk
+  permit: IPermit
   minio: MinioOptions
 }
 export interface MinioOptions {

@@ -21,6 +21,7 @@ export const configuration = (): ConfigApp => {
     MINIO_USE_SSL: bool({ default: false }),
     MINIO_BUCKET_NAME: str(),
     IGNORED_ROUTES: str(),
+    PERMIT_API_KEY: str(),
   })
   return {
     env: configEnvValidate.NODE_ENV,
@@ -32,6 +33,9 @@ export const configuration = (): ConfigApp => {
       apiKey: configEnvValidate.CLERK_API_KEY,
       publishableKey: configEnvValidate.CLERK_PUBLISHABLE_KEY,
       secretKey: configEnvValidate.CLERK_SECRET_KEY,
+    },
+    permit: {
+      apiKey: configEnvValidate.PERMIT_API_KEY,
     },
     db: {
       type: "postgres",

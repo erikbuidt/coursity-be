@@ -73,6 +73,7 @@ export class CourseService {
     }
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
     const rawPagination = await paginateRaw<Course & { lesson_count: number; instructor_email: string }>(queryBuilder as any, options)
+    console.log(rawPagination.items)
     return {
       items: rawPagination.items.map((item) => ({
         ...item,
@@ -99,6 +100,7 @@ export class CourseService {
         "course.promotion_video_url",
         "course.discount_price",
         "course.will_learns",
+        "course.instructor_id",
         "course.requirements",
         "chapter.id",
         "chapter.title",
@@ -227,5 +229,21 @@ export class CourseService {
     }
     course.status = COURSE_STATUS.IN_REVIEW
     return this.courseRepository.save(course)
+  }
+  async getMyCourses(userId: number) {
+    const myEnrollment = await this.enrollmentRepository.find({
+      where: { user_id: userId },
+      relations: ["course"],
+    })
+    const courseProgresses = await this.courseProgressRepository.find({
+      where: { user_id: userId },
+    })
+    const myCourses = myEnrollment.map((enrollment) => {
+      const course = enrollment.course
+      const courseProgress = courseProgresses.find((cp) => cp.course_id === course.id)
+      return { ...course, course_progress: courseProgress }
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    }) as any
+    return myCourses
   }
 }

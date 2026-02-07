@@ -126,4 +126,9 @@ export class CourseController {
   async submitToReview(@Param("slug") slug: string, @User() user: PublicMetadata) {
     return this.courseService.submitToReview(slug, user?.db_user_id)
   }
+
+  @Get("/my-courses/learning")
+  async getMyCourses(@User() user: PublicMetadata) {
+    return this.courseService.getMyCourses(user?.db_user_id)
+  }
 }

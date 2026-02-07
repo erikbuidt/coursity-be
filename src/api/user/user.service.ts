@@ -6,6 +6,8 @@ import { InjectRepository } from "@nestjs/typeorm"
 import type { Repository } from "typeorm"
 import type { CreateClerkUser } from "./dto/req/create-clerk-user.dto"
 import { UserRes } from "./dto/res/user-res.dto"
+// biome-ignore lint/style/useImportType: <explanation>
+import { PermitService } from "@/modules/permit-io/permit.service"
 
 @Injectable()
 export class UserService {
@@ -14,6 +16,7 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly permitService: PermitService,
   ) {}
 
   /**
@@ -95,12 +98,21 @@ export class UserService {
 
   async createClerkUser(createClerkUser: CreateClerkUser): Promise<User> {
     try {
-      await this.userRepository.upsert(createClerkUser, ["clerk_user_id"])
-      const user = await this.userRepository.findOne({
-        where: { clerk_user_id: createClerkUser.clerk_user_id },
-      })
-      if (!user) throw new Error("User not found after upsert")
-      return user
+      const userResult = await this.userRepository.upsert(createClerkUser, ["email"])
+      const user = userResult.raw[0]
+      if (user.deleted_at) {
+        await this.userRepository.restore(user.id)
+      }
+      await this.permitService.syncUser(
+        user.id.toString(),
+        createClerkUser.email,
+        createClerkUser.full_name.split(" ")[0],
+        createClerkUser.full_name.split(" ")[1],
+      )
+      return {
+        ...user,
+        clerk_user_id: createClerkUser.clerk_user_id,
+      }
     } catch (error) {
       this.logger.error(`Error syncing user with clerk_user_id: ${createClerkUser.clerk_user_id}`, error.stack)
       throw error
@@ -110,13 +122,21 @@ export class UserService {
   async updateClerkUser(updateClerkUser: Partial<CreateClerkUser>): Promise<string> {
     const { clerk_user_id, ...updatedData } = updateClerkUser
     await this.userRepository.update({ clerk_user_id }, updatedData)
+
+    const user = await this.userRepository.findOne({ where: { clerk_user_id } })
+    if (!user) throw new Error("User not found")
+    await this.permitService.syncUser(user.id.toString(), user.email, user.full_name.split(" ")[0], user.full_name.split(" ")[1])
     return "success"
   }
 
   async deleteClerkUser(clerk_user_id: string) {
-    await this.userRepository.delete({
+    console.log("deleteClerkUser", { clerk_user_id })
+    const user = await this.userRepository.findOne({ where: { clerk_user_id } })
+    if (!user) throw new Error("User not found")
+    await this.userRepository.softDelete({
       clerk_user_id,
     })
+    await this.permitService.deleteUser(user.id.toString())
     return "success"
   }
 }

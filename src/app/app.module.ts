@@ -22,6 +22,7 @@ import { ChapterModule } from "@/api/chapter/chapter.module"
 import { join } from "node:path"
 import { AuditSubscriber } from "@/common/providers/entity-subscriber.provider"
 import { InstructorModule } from "@/api/instructor/instructor.module"
+import { PermitModule } from "@/modules/permit-io/permit.module"
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { InstructorModule } from "@/api/instructor/instructor.module"
     FFmpegModule,
     ChapterModule,
     InstructorModule,
+    PermitModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AppInterceptor },
