@@ -1,135 +1,155 @@
 import { APP_ERROR } from "@/common/errors/app.error"
 import { AppException } from "@/common/errors/exception.error"
-import { Course } from "@/entity/course.entity"
-import { Enrollment } from "@/entity/enrollment.entity"
-import { InjectRepository } from "@nestjs/typeorm"
+import { Injectable } from "@nestjs/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import { DataSource, Repository } from "typeorm"
+import { PrismaService } from "@/modules/prisma/prisma.service"
 
+@Injectable()
 export class LearningService {
-  constructor(
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
-    @InjectRepository(Enrollment)
-    private readonly enrollRepository: Repository<Enrollment>,
-    private dataSource: DataSource,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async isEnrolled(userId: number, courseSlug: string): Promise<boolean> {
-    const enrollment = await this.enrollRepository.findOne({
-      where: { user: { id: userId }, course: { slug: courseSlug } },
-      relations: ["course"],
+    const course = await this.prisma.courses.findFirst({
+      where: { slug: courseSlug, deleted_at: null },
     })
-    return !!enrollment // true if enrolled
+    if (!course) return false
+
+    const enrollment = await this.prisma.enrollments.findFirst({
+      where: { user_id: userId, course_id: course.id, deleted_at: null },
+    })
+    return !!enrollment
   }
+
   async findCourse(slug: string, lessonId: number, userId: number) {
     const enrolled = userId ? await this.isEnrolled(userId, slug) : false
     if (!enrolled) throw new AppException(APP_ERROR.FORBIDDEN_ROLE)
 
-    const course = await this.courseRepository
-      .createQueryBuilder("course")
-      .leftJoinAndSelect("course.chapters", "chapter")
-      .leftJoinAndSelect("chapter.lessons", "lesson")
-      .leftJoin("lesson_complete", "lc", "lc.lesson_id = lesson.id AND lc.user_id = :userId", { userId })
-      .where("course.slug = :slug", { slug })
-      .addSelect("CASE WHEN lc.id IS NOT NULL THEN true ELSE false END", "is_completed")
-      .orderBy("chapter.position", "ASC")
-      .orderBy("lesson.position", "ASC")
-      .getRawAndEntities()
-
-    const completedLessonMap = new Map<number, boolean>()
-    const chapterCompletedLessonMap = new Map<number, number>() // chapter_id -> count
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    // biome-ignore lint/complexity/noForEach: <explanation>
-    course.raw.forEach((raw: any) => {
-      const lessonId = raw.lesson_id
-      const chapterId = raw.chapter_id
-      const isCompleted = raw.is_completed === true
-
-      completedLessonMap.set(lessonId, isCompleted)
-
-      if (isCompleted) {
-        chapterCompletedLessonMap.set(chapterId, (chapterCompletedLessonMap.get(chapterId) || 0) + 1)
-      }
+    // Get course with chapters and lessons
+    const course = await this.prisma.courses.findFirst({
+      where: { slug, deleted_at: null },
+      include: {
+        chapters: {
+          where: { deleted_at: null },
+          orderBy: { position: "asc" },
+          include: {
+            lessons: {
+              where: { deleted_at: null },
+              orderBy: { position: "asc" },
+            },
+          },
+        },
+      },
     })
 
-    // ✅ Set is_completed on each lesson entity
-    // biome-ignore lint/complexity/noForEach: <explanation>
-    course.entities[0].chapters
-      .sort((a, b) => a.position - b.position)
-      .forEach((chapter) => {
-        // biome-ignore lint/complexity/noForEach: <explanation>
-        chapter.lessons
-          .sort((a, b) => a.position - b.position)
-          .forEach((lesson) => {
-            lesson.is_completed = completedLessonMap.get(lesson.id) || false
-          })
+    if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
 
-        // ✅ Set completed count
-        chapter.chapter_completed_lesson_count = chapterCompletedLessonMap.get(chapter.id) || 0
-      })
+    // Get completed lessons for this user
+    const completedLessons = await this.prisma.lesson_complete.findMany({
+      where: { user_id: userId, course_id: course.id, deleted_at: null },
+      select: { lesson_id: true, chapter_id: true },
+    })
 
-    return course.entities[0]
+    const completedLessonIds = new Set(completedLessons.map((lc) => lc.lesson_id))
+    const chapterCompletedCount = new Map<number, number>()
+
+    for (const lc of completedLessons) {
+      const count = chapterCompletedCount.get(lc.chapter_id) ?? 0
+      chapterCompletedCount.set(lc.chapter_id, count + 1)
+    }
+
+    // Attach is_completed to each lesson and chapter_completed_lesson_count to each chapter
+    const chaptersWithCompletion = course.chapters.map((chapter) => ({
+      ...chapter,
+      chapter_completed_lesson_count: chapterCompletedCount.get(chapter.id) ?? 0,
+      lessons: chapter.lessons.map((lesson) => ({
+        ...lesson,
+        is_completed: completedLessonIds.has(lesson.id),
+      })),
+    }))
+
+    return {
+      ...course,
+      chapters: chaptersWithCompletion,
+    }
   }
 
   async completeLesson(userId: number, courseId: number, chapterId: number, lessonId: number): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      // 1. Insert into lesson_complete
-      await manager
-        .createQueryBuilder()
-        .insert()
-        .into("lesson_complete")
-        .values({
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Insert into lesson_complete (upsert to avoid duplicates)
+      await tx.lesson_complete.upsert({
+        where: {
+          user_id_lesson_id: { user_id: userId, lesson_id: lessonId },
+        },
+        update: {},
+        create: {
           user_id: userId,
           course_id: courseId,
           lesson_id: lessonId,
           chapter_id: chapterId,
-        })
-        .orIgnore()
-        .execute()
+        },
+      })
 
       // 2. Count total lessons in the chapter
-      const totalLessonsInChapter = await manager.getRepository("lessons").count({ where: { chapter_id: chapterId } })
+      const totalLessonsInChapter = await tx.lessons.count({
+        where: { chapter_id: chapterId, deleted_at: null },
+      })
 
       // 3. Count user's completed lessons in this chapter
-      const userCompletedLessons = await manager.getRepository("lesson_complete").count({ where: { user_id: userId, chapter_id: chapterId } })
+      const userCompletedLessons = await tx.lesson_complete.count({
+        where: { user_id: userId, chapter_id: chapterId, deleted_at: null },
+      })
 
       if (userCompletedLessons === totalLessonsInChapter) {
         // 4. Mark chapter as complete
-        await manager
-          .createQueryBuilder()
-          .insert()
-          .into("chapter_complete")
-          .values({ user_id: userId, course_id: courseId, chapter_id: chapterId })
-          .orIgnore()
-          .execute()
+        await tx.chapter_complete.upsert({
+          where: {
+            user_id_chapter_id: { user_id: userId, chapter_id: chapterId },
+          },
+          update: {},
+          create: {
+            user_id: userId,
+            course_id: courseId,
+            chapter_id: chapterId,
+          },
+        })
       }
-      // 5. Count total lessons in the course
-      const completedLessonsCount = await manager.getRepository("lesson_complete").count({ where: { user_id: userId, course_id: courseId } })
 
-      const totalLessons = await manager
-        .getRepository("lessons")
-        .createQueryBuilder("lesson")
-        .innerJoin("lesson.chapter", "chapter")
-        .where("chapter.course_id = :courseId", { courseId })
-        .getCount()
+      // 5. Count completed lessons in the course
+      const completedLessonsCount = await tx.lesson_complete.count({
+        where: { user_id: userId, course_id: courseId, deleted_at: null },
+      })
+
+      // 6. Count total lessons in the course
+      const totalLessons = await tx.lessons.count({
+        where: {
+          chapters: { course_id: courseId },
+          deleted_at: null,
+        },
+      })
 
       if (totalLessons > 0) {
         const progress = Math.round((completedLessonsCount / totalLessons) * 100)
         const isCompleted = progress === 100
         const completedAt = isCompleted ? new Date() : null
-        await manager.query(
-          `
-          INSERT INTO course_progress (user_id, course_id, progress_percent, last_lesson_id, completed_at)
-          VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (user_id, course_id)
-          DO UPDATE SET 
-            progress_percent = $3, 
-            last_lesson_id = $4,
-            completed_at = CASE WHEN $3 = 100 THEN NOW() ELSE NULL END
-          `,
-          [userId, courseId, progress, lessonId, completedAt],
-        )
+
+        // 7. Upsert course progress
+        await tx.course_progress.upsert({
+          where: {
+            user_id_course_id: { user_id: userId, course_id: courseId },
+          },
+          update: {
+            progress_percent: progress,
+            last_lesson_id: lessonId,
+            completed_at: completedAt,
+          },
+          create: {
+            user_id: userId,
+            course_id: courseId,
+            progress_percent: progress,
+            last_lesson_id: lessonId,
+            completed_at: completedAt,
+          },
+        })
       }
     })
   }

@@ -22,9 +22,14 @@ FROM erikbuidt/node-ffmpeg:22-alpine AS build
 
 WORKDIR /usr/src/app
 
+RUN apk add --no-cache openssl
+
 COPY --chown=node:node package*.json ./
 COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modules
 COPY --chown=node:node . .
+
+
+
 
 RUN npm run build
 
@@ -37,7 +42,10 @@ USER node
 # PRODUCTION
 ###################
 
+
 FROM erikbuidt/node-ffmpeg:22-alpine AS production
+
+RUN apk add --no-cache openssl
 
 WORKDIR /usr/src/app
 

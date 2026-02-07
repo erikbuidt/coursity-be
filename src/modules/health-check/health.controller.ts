@@ -1,19 +1,14 @@
 import { Public } from "@/common/decorators/public.decorator"
-import { BadGatewayException, BadRequestException, Controller, GatewayTimeoutException, Get } from "@nestjs/common"
+import { BadGatewayException, BadRequestException, Controller, Get } from "@nestjs/common"
 // biome-ignore lint/style/useImportType: <explanation>
-import {
-  HealthCheck,
-  HealthCheckResult,
-  HealthCheckService,
-  HealthIndicatorResult,
-  HttpHealthIndicator,
-  TypeOrmHealthIndicator,
-} from "@nestjs/terminus"
+import { HealthCheck, HealthCheckResult, HealthCheckService, HealthIndicatorResult, HttpHealthIndicator } from "@nestjs/terminus"
 // biome-ignore lint/style/useImportType: <explanation>
 import { AxiosService } from "../axios"
 import { Retry } from "@/common/decorators/retry.decorator"
 // biome-ignore lint/style/useImportType: <explanation>
 import { Logger } from "http-system-logger"
+// biome-ignore lint/style/useImportType: <explanation>
+import { PrismaService } from "../prisma/prisma.service"
 
 /**
  * https://docs.nestjs.com/recipes/terminus
@@ -24,7 +19,7 @@ export class HealthController {
   constructor(
     private health: HealthCheckService,
     private http: HttpHealthIndicator,
-    private db: TypeOrmHealthIndicator,
+    private prisma: PrismaService,
     private axios: AxiosService,
   ) {}
 
@@ -34,9 +29,19 @@ export class HealthController {
   public async executeHealthCheck(): Promise<HealthCheckResult> {
     return await this.health.check([
       async (): Promise<HealthIndicatorResult> => await this.http.pingCheck("dns", "https://1.1.1.1"),
-      async (): Promise<HealthIndicatorResult> => await this.db.pingCheck("database"),
+      async (): Promise<HealthIndicatorResult> => this.checkPrismaHealth(),
     ])
   }
+
+  private async checkPrismaHealth(): Promise<HealthIndicatorResult> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`
+      return { database: { status: "up" } }
+    } catch {
+      return { database: { status: "down" } }
+    }
+  }
+
   @Public()
   @Get("hello")
   @Retry(3, 5000, { when: { statusCode: 502 } })

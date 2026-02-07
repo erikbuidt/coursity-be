@@ -15,8 +15,7 @@ import {
 // biome-ignore lint/style/useImportType: <explanation>
 import { CourseService } from "./course.service"
 import { Public } from "@/common/decorators/public.decorator"
-import type { Pagination } from "nestjs-typeorm-paginate"
-import type { Course } from "@/entity/course.entity"
+import type { courses } from "../../generated/prisma/client"
 import type { IPaginationMeta, PublicMetadata } from "@/common/interfaces/common.interface"
 import { User } from "@/common/decorators/user.decorator"
 // biome-ignore lint/style/useImportType: <explanation>
@@ -25,6 +24,11 @@ import { UpdateCourseDto } from "./dto/update-course.dto"
 import { CreateCourseDto } from "./dto/create-course.dto"
 import { FileFieldsInterceptor, FileInterceptor } from "@nestjs/platform-express"
 import { COURSE_STATUS } from "@/common/constant/app.constant"
+
+interface PaginatedResult<T> {
+  items: T[]
+  meta: IPaginationMeta
+}
 
 @Controller("courses")
 export class CourseController {
@@ -51,22 +55,23 @@ export class CourseController {
   @Public()
   @Get()
   async getPublishedCourses(
-    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
-    @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit: number = 8,
-    @Query("search", new DefaultValuePipe("")) search: string = "",
-  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit = 8,
+    @Query("search", new DefaultValuePipe("")) search = "",
+  ): Promise<PaginatedResult<courses & { lesson_count: number }>> {
     return this.courseService.findAll({ page, limit, status: [COURSE_STATUS.PUBLISHED] }, search)
   }
 
   @Get("/all")
   async getAllCourses(
-    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
-    @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit: number = 8,
-    @Query("search", new DefaultValuePipe("")) search: string = "",
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query("limit", new DefaultValuePipe(8), ParseIntPipe) limit = 8,
+    @Query("search", new DefaultValuePipe("")) search = "",
     @Query("status") status?: string,
-  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
+  ): Promise<PaginatedResult<courses & { lesson_count: number }>> {
     return this.courseService.findAll({ page, limit, status: status ? (status?.split(",") as COURSE_STATUS[]) : [] }, search)
   }
+
   @Get(":slug")
   @Public()
   async getOne(@Param("slug") slug: string, @User() user: PublicMetadata) {
@@ -114,7 +119,7 @@ export class CourseController {
   ) {
     const thumbnail = files.thumbnail?.[0]
     const promotionVideo = files.promotion_video?.[0]
-    return this.courseService.update(slug, updateCourseDto, thumbnail, promotionVideo, user?.db_user_id)
+    return this.courseService.update(slug, updateCourseDto as unknown as Record<string, unknown>, thumbnail, promotionVideo, user?.db_user_id)
   }
 
   @Get(":slug/progress")

@@ -1,0 +1,204 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model chapter_complete {
+  id         Int      @id(map: "PK_95e2814fb9c8767337863af72a9") @default(autoincrement())
+  user_id    Int
+  course_id  Int
+  chapter_id Int
+  courses    courses  @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_6f4695925a1919b41f373a49b64")
+  chapters   chapters @relation(fields: [chapter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_eaba6aa7aff9f217322f18b2f03")
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_f4c0647d9495a85cd4a0812bb25")
+
+  @@unique([user_id, chapter_id], map: "UQ_242990c68dbc7703db6f34e66ab")
+}
+
+model chapter_progress {
+  id           Int      @id(map: "PK_7276d733f4fd2d78a9b2955fd9b") @default(autoincrement())
+  user_id      Int
+  course_id    Int
+  chapter_id   Int
+  is_completed Boolean  @default(false)
+  chapters     chapters @relation(fields: [chapter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_350dd97812aa0f321f212585fd7")
+  users        users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_3796b7939c2bb68b3355b079ca8")
+  courses      courses  @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_4cf3b9827813e536ead90056d46")
+
+  @@unique([user_id, chapter_id], map: "UQ_d49a505d72f84acb0909348d5cc")
+}
+
+model chapters {
+  id                   Int                @id(map: "PK_a2bbdbb4bdc786fe0cb0fcfc4a0") @default(autoincrement())
+  title                String             @db.VarChar
+  position             Int
+  chapter_lesson_count Int
+  course_id            Int
+  created_by           String?            @db.VarChar
+  updated_by           String?            @db.VarChar
+  deleted_by           String?            @db.VarChar
+  deleted_at           DateTime?          @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  chapter_complete     chapter_complete[]
+  chapter_progress     chapter_progress[]
+  courses              courses            @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_9909a69a63f1d064b42ef35ab04")
+  lesson_complete      lesson_complete[]
+  lessons              lessons[]
+}
+
+model course_progress {
+  id               Int       @id(map: "PK_eadd1b31d44023e533eb847c4f7") @default(autoincrement())
+  progress_percent Decimal   @default(0) @db.Decimal
+  user_id          Int
+  course_id        Int
+  created_by       String?   @db.VarChar
+  updated_by       String?   @db.VarChar
+  deleted_by       String?   @db.VarChar
+  deleted_at       DateTime? @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  last_lesson_id   Int?
+  completed_at     DateTime? @db.Timestamp(6)
+  courses          courses   @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_468b14b39d8428b77d8630bd5cc")
+  users            users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_85392161b4c16580b3a7d937d94")
+
+  @@unique([user_id, course_id], map: "UQ_578f66595af7b446be0f5464685")
+}
+
+model courses {
+  id                  Int                @id(map: "PK_3f70a487cc718ad8eda4e6d58c9") @default(autoincrement())
+  title               String             @db.VarChar
+  description         String
+  price               Decimal            @default(0) @db.Decimal
+  category            String?            @db.VarChar
+  status              String             @default("draft") @db.VarChar
+  discount_enabled    Boolean            @default(false)
+  discount_start_time DateTime           @default(now()) @db.Timestamp(6)
+  discount_end_time   DateTime           @default(now()) @db.Timestamp(6)
+  discount_price      Decimal?           @db.Decimal
+  slug                String             @db.VarChar
+  image_url           String             @db.VarChar
+  is_free             Boolean            @default(false)
+  requirements        Json?
+  will_learns         Json?
+  instructor_id       Int?
+  created_by          String?            @db.VarChar
+  updated_by          String?            @db.VarChar
+  deleted_by          String?            @db.VarChar
+  deleted_at          DateTime?          @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  promotion_video_url String?            @db.VarChar
+  chapter_complete    chapter_complete[]
+  chapter_progress    chapter_progress[]
+  chapters            chapters[]
+  course_progress     course_progress[]
+  users               users?             @relation(fields: [instructor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_4fdc83dd6b261101401ec259342")
+  enrollments         enrollments[]
+  lesson_complete     lesson_complete[]
+}
+
+model enrollments {
+  id         Int       @id(map: "PK_7c0f752f9fb68bf6ed7367ab00f") @default(autoincrement())
+  user_id    Int
+  course_id  Int
+  created_by String?   @db.VarChar
+  updated_by String?   @db.VarChar
+  deleted_by String?   @db.VarChar
+  deleted_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  courses    courses   @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_b79d0bf01779fdf9cfb6b092af3")
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_ff997f5a39cd24a491b9aca45c9")
+}
+
+model files {
+  created_by     String?   @db.VarChar
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_by     String?   @db.VarChar
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  deleted_by     String?   @db.VarChar
+  deleted_at     DateTime? @db.Timestamptz(6)
+  id             Int       @id(map: "PK_6c16b9093a142e0e7613b04a3d9") @default(autoincrement())
+  originalname   String    @db.VarChar
+  mimetype       String    @db.VarChar
+  filename       String    @unique(map: "UQ_134735cc45672b90b366c20dc35") @db.VarChar
+  minio_filename String    @db.VarChar
+  path           String    @db.VarChar
+  size           Decimal   @db.Decimal
+  is_public      Boolean   @default(false)
+  destination    String    @db.VarChar
+}
+
+model lesson_complete {
+  id         Int       @id(map: "PK_170eb829c83d2f120ce07b4b600") @default(autoincrement())
+  user_id    Int
+  lesson_id  Int
+  created_by String?   @db.VarChar
+  updated_by String?   @db.VarChar
+  deleted_by String?   @db.VarChar
+  deleted_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  chapter_id Int
+  course_id  Int
+  lessons    lessons   @relation(fields: [lesson_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_11118d4b7ccbddb04146e9011d3")
+  courses    courses   @relation(fields: [course_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_39d6c2aa47d50293d7f6ccfa584")
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_5a8395d0554fd030269d9105ed3")
+  chapters   chapters  @relation(fields: [chapter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_b269bb983853eaae67d9f9f379c")
+
+  @@unique([user_id, lesson_id], map: "UQ_07f91c4170a55d28a01351ad26d")
+}
+
+model lessons {
+  id              Int               @id(map: "PK_9b9a8d455cac672d262d7275730") @default(autoincrement())
+  duration        Decimal?          @db.Decimal
+  video_url       String?           @db.VarChar
+  image_url       String?           @db.VarChar
+  video_provider  String?           @db.VarChar
+  title           String            @db.VarChar
+  chapter_id      Int
+  created_by      String?           @db.VarChar
+  updated_by      String?           @db.VarChar
+  deleted_by      String?           @db.VarChar
+  deleted_at      DateTime?         @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  position        Int?
+  lesson_complete lesson_complete[]
+  chapters        chapters          @relation(fields: [chapter_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_424ea916afdf352278a064dabbd")
+}
+
+model migrations {
+  id        Int    @id(map: "PK_8c82d7f526340ab734260ea46be") @default(autoincrement())
+  timestamp BigInt
+  name      String @db.VarChar
+}
+
+model users {
+  id               Int                @id(map: "PK_a3ffb1c0c8416b9fc6f907b7433") @default(autoincrement())
+  full_name        String             @db.VarChar
+  email            String             @unique(map: "UQ_97672ac88f789774dd47f7c8be3") @db.VarChar
+  password         String?            @db.VarChar
+  role             String             @default("student") @db.VarChar
+  created_by       String?            @db.VarChar
+  updated_by       String?            @db.VarChar
+  deleted_by       String?            @db.VarChar
+  deleted_at       DateTime?          @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  clerk_user_id    String?            @unique(map: "UQ_69b38acaab6341c8769a0058721") @db.VarChar
+  image_url        String?            @db.VarChar
+  chapter_complete chapter_complete[]
+  chapter_progress chapter_progress[]
+  course_progress  course_progress[]
+  courses          courses[]
+  enrollments      enrollments[]
+  lesson_complete  lesson_complete[]
+}

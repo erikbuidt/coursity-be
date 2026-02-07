@@ -1,20 +1,18 @@
 import { Controller, Get, Param, Query, Delete, HttpCode, HttpStatus, Post, Body, UseGuards, Put } from "@nestjs/common"
 // biome-ignore lint/style/useImportType: <explanation>
 import { UserService } from "./user.service"
-import type { User } from "@/entity/user.entity"
 import type { UserQueryDto } from "./dto/user-query.dto"
 import type { CreateClerkUser } from "./dto/req/create-clerk-user.dto"
 import { ApiKeyGuard } from "@/common/guards/api-key.guard"
-import { UserRes } from "./dto/res/user-res.dto"
-import { ClerkAuthGuard } from "@/common/guards/clerk.guard"
 import { Public } from "@/common/decorators/public.decorator"
+import type { users } from "../../generated/prisma/client"
 
 @Controller("user")
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get(":userId")
-  getUserById(@Param("userId") userId: number): Promise<User | null> {
+  getUserById(@Param("userId") userId: number): Promise<users | null> {
     return this.userService.getUserById(userId)
   }
 
@@ -30,18 +28,10 @@ export class UserController {
     return { message: `User with id ${userId} deleted successfully` }
   }
 
-  async createUser(user: User): Promise<User> {
-    return this.userService.createUser(user)
-  }
-
-  async updateUser(userId: number, user: User): Promise<User | null> {
-    return this.userService.updateUser(userId, user)
-  }
-
   @Post("create-clerk-user")
   @Public()
   @UseGuards(ApiKeyGuard)
-  async createUserFromClerk(@Body() data: CreateClerkUser): Promise<User> {
+  async createUserFromClerk(@Body() data: CreateClerkUser): Promise<users> {
     console.log("Create user from clerk")
     console.log({ data })
     return this.userService.createClerkUser(data)

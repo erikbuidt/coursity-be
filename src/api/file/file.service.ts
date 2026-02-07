@@ -1,10 +1,8 @@
 import { APP_ERROR } from "@/common/errors/app.error"
 import { AppException } from "@/common/errors/exception.error"
-import { File } from "@/entity/file.entity"
 import { Injectable } from "@nestjs/common"
-import { InjectRepository } from "@nestjs/typeorm"
 // biome-ignore lint/style/useImportType: <explanation>
-import { Repository } from "typeorm"
+import { PrismaService } from "@/modules/prisma/prisma.service"
 import * as Minio from "erik-minio"
 // biome-ignore lint/style/useImportType: <explanation>
 import { ConfigService } from "@nestjs/config"
@@ -15,17 +13,14 @@ import type { Response } from "express"
 // biome-ignore lint/style/useImportType: <explanation>
 import { FFmpegService } from "@/modules/ffmpeg/ffmpeg.service"
 import * as path from "node:path"
-import { PassThrough } from "node:stream"
-import { createReadStream } from "node:fs"
-import { stat } from "node:fs/promises"
+
 @Injectable()
 export class FileService {
   private minioClient: Minio.Client
   private bucketName: string
-  constructor(
-    @InjectRepository(File)
-    private readonly fileRepository: Repository<File>,
 
+  constructor(
+    private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly ffmpegService: FFmpegService,
   ) {
@@ -38,47 +33,47 @@ export class FileService {
     })
     this.bucketName = this.configService.get("minio").bucketName
   }
+
   async findOne(filename: string, res: Response, isPublic = true) {
-    const file = await this.fileRepository.findOne({
-      where: { filename: filename, is_public: isPublic },
+    const file = await this.prisma.files.findFirst({
+      where: { filename, is_public: isPublic, deleted_at: null },
     })
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
     }
     res.set({
-      "Content-Type": file.mimetype, // 'Content-Disposition': `attachment; filename="${file.originalname}"`,
+      "Content-Type": file.mimetype,
     })
     try {
       const readable = await this.minioClient.getObject(this.bucketName, file.minio_filename)
-
       res.set({
         "Content-Type": file.mimetype,
-        // 'Content-Disposition': `attachment; filename="${file.originalname}"`,
       })
-
       return readable.pipe(res)
     } catch (error) {
       console.log(error)
     }
   }
+
   async create(createFileDto: CreateFileDto, file: Express.Multer.File, meta?: PublicMetadata) {
     await this.createBucketIfNotExists()
 
     const fileName = `${createFileDto.sub_bucket}/${file.originalname}`
     await this.minioClient.putObject(this.bucketName, fileName, file.buffer, file.size)
 
-    const record = this.fileRepository.create({
-      ...createFileDto,
-      mimetype: file.mimetype,
-      originalname: file.originalname,
-      destination: file.destination ?? "N/A",
-      filename: file.filename ?? randomUUID(),
-      minio_filename: fileName,
-      path: file.path ?? "N/A",
-      size: file.size,
-      is_public: createFileDto.is_public ?? true,
+    const record = await this.prisma.files.create({
+      data: {
+        mimetype: file.mimetype,
+        originalname: file.originalname,
+        destination: file.destination ?? "N/A",
+        filename: file.filename ?? randomUUID(),
+        minio_filename: fileName,
+        path: file.path ?? "N/A",
+        size: file.size,
+        is_public: createFileDto.is_public ?? true,
+      },
     })
-    return this.fileRepository.save(record)
+    return record
   }
 
   async createBucketIfNotExists() {
@@ -93,49 +88,8 @@ export class FileService {
     return { upload_id: uploadId }
   }
 
-  // async uploadChunk(bucket: string, filename: string, uploadId: string, partNumber: number, chunk: Buffer) {
-  //   try {
-  //     // Generate MD5 hash for the chunk (base64)
-  //     const md5Hash = createHash("md5").update(chunk).digest("base64")
-
-  //     const url = `http://${this.configService.get("minio").endPoint}:9000/${
-  //       bucket
-  //     }/${filename}?uploadId=${uploadId}&partNumber=${partNumber}`
-
-  //     // Direct HTTP request for uploading the part
-  //     const response = await axios.put(url, chunk, {
-  //       headers: {
-  //         "Content-MD5": md5Hash,
-  //         "Content-Type": "application/octet-stream",
-  //         "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
-  //         Authorization: `Bearer ${this.configService.get("minio").accessKey}:${this.configService.get("minio").secretKey}`,
-  //       },
-  //       maxBodyLength: Number.POSITIVE_INFINITY,
-  //       maxContentLength: Number.POSITIVE_INFINITY,
-  //     })
-
-  //     // Ensure response has ETag
-  //     const etag = response.headers.etag
-  //     if (!etag) {
-  //       throw new Error("ETag missing from MinIO response.")
-  //     }
-  //     console.log({ etag })
-  //     return { etag }
-  //   } catch (error) {
-  //     console.log(error)
-  //     throw new Error(`Failed to upload part ${error}`)
-  //   }
-  // }
-
-  // async uploadChunk(bucket: string, filename: string, uploadId: string, partNumber: number, chunk: Buffer) {
-  //   const etag = crypto.createHash('md5').update(chunk).digest('hex');
-  //   await this.minioClient.putObject(bucket, `${filename}.part.${partNumber}`, chunk);
-  //   return { etag };
-  // }
-
   async uploadChunk(bucket: string, filename: string, uploadId: string, partNumber: number, chunk: Buffer) {
     try {
-      // Setting required headers (Content-MD5 is recommended)
       const md5Hash = createHash("md5").update(chunk).digest("base64")
 
       const partConfig = {
@@ -149,7 +103,6 @@ export class FileService {
         },
       }
 
-      // Use the MinIO SDK's uploadPart method
       const result = await this.minioClient.uploadPart(partConfig, chunk)
 
       if (!result || !result.etag) {
@@ -161,12 +114,11 @@ export class FileService {
       return { etag: result.etag }
     } catch (error) {
       console.error(`Failed to upload part ${partNumber}`, error)
-      throw new Error(`Failed to upload part ${partNumber}: ${error.message}`)
+      throw new Error(`Failed to upload part ${partNumber}: ${(error as Error).message}`)
     }
   }
 
   async completeUpload(bucket: string, filename: string, uploadId: string, parts: { partNumber: number; etag: string }[]) {
-    // Transforming parts to match the required format
     const formattedParts = parts.map((part) => ({
       part: part.partNumber,
       etag: part.etag,
@@ -177,32 +129,29 @@ export class FileService {
   }
 
   async encodeVideo() {
-    // const video = await this.minioClient.getObject(this.bucketName, filename)
-    // const videoBuffer = await video.pipe(new PassThrough())
-    // const encodedVideo = await this.hlsService.encodeHLS(videoBuffer)
-    // return encodedVideo
     const videoPath = path.resolve(__dirname, "..", "..", "assets", "4kvideo.mp4")
-    const rs = await this.ffmpegService.generateMp4Resolutions(videoPath)
+    await this.ffmpegService.generateMp4Resolutions(videoPath)
     return "ok"
   }
 
   async findVideo(filename: string, req: Request, res: Response, isPublic = true) {
     const range = req.headers["range"]
-    const file = await this.fileRepository.findOne({
-      where: { filename },
+    const file = await this.prisma.files.findFirst({
+      where: { filename, deleted_at: null },
     })
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("MinIO statObject timeout")), 5000))
     if (!file) {
       throw new AppException(APP_ERROR.FILE_NOT_FOUND)
     }
     try {
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
       const fileStat: any = await Promise.race([this.minioClient.statObject(this.bucketName, file.minio_filename), timeout])
       const fileSize = fileStat.size
       if (range) {
-        // Parse range header (e.g., "bytes=0-1000" or "bytes=0-")
         const [start, end] = this.getRange(range, fileSize)
         const chunkSize = end - start + 1
 
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         const stream: any = await Promise.race([
           this.minioClient.getPartialObject(this.bucketName, file.minio_filename, start, chunkSize),
           new Promise((_, reject) => setTimeout(() => reject(new Error("MinIO getPartialObject timeout")), 5000)),
@@ -217,7 +166,8 @@ export class FileService {
         stream.pipe(res)
       }
     } catch (error) {
-      if (error.code === "ENOENT") {
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+      if ((error as any).code === "ENOENT") {
         res.status(404).send("Video not found")
       } else {
         console.error("Stream error:", error)
@@ -226,13 +176,11 @@ export class FileService {
     }
   }
 
-  // Helper function to parse range
   private getRange(range: string, totalSize: number): [number, number] {
     const parts = range.replace(/bytes=/, "").split("-")
     const start = Number.parseInt(parts[0], 10)
     let end = parts[1] ? Number.parseInt(parts[1], 10) : totalSize - 1
 
-    // Validate and fix range values
     end = Math.min(end, totalSize - 1)
     if (Number.isNaN(start) || start < 0 || start >= totalSize) {
       throw new Error("Invalid start of range")

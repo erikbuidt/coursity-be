@@ -1,8 +1,6 @@
-import { Lesson } from "@/entity/lesson.entity"
-import { LessonComplete } from "@/entity/lesson-complete.entity"
 import { Injectable } from "@nestjs/common"
-import { InjectRepository } from "@nestjs/typeorm"
-import type { Repository } from "typeorm"
+// biome-ignore lint/style/useImportType: <explanation>
+import { PrismaService } from "@/modules/prisma/prisma.service"
 import type { CreateLessonDto } from "./dto/create-lesson.dto"
 import type { UpdateLessonDto } from "./dto/update-lesson.dto"
 // biome-ignore lint/style/useImportType: <explanation>
@@ -12,86 +10,109 @@ import { FFmpegService } from "@/modules/ffmpeg/ffmpeg.service"
 import type { BulkUpdateLessonDto } from "./dto/bulk-update-lesson.dto"
 import { AppException } from "@/common/errors/exception.error"
 import { APP_ERROR } from "@/common/errors/app.error"
-import { Chapter } from "@/entity/chapter.entity"
 // biome-ignore lint/style/useImportType: <explanation>
 import { ConfigService } from "@nestjs/config"
+import type { lessons } from "../../generated/prisma/client"
 
 @Injectable()
 export class LessonService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly fileService: FileService,
     private readonly ffmpegService: FFmpegService,
     private readonly configService: ConfigService,
-    @InjectRepository(Lesson)
-    private readonly lessonRepository: Repository<Lesson>,
-    @InjectRepository(LessonComplete)
-    private readonly lessonCompleteRepository: Repository<LessonComplete>,
   ) {}
 
   async fineOne(lessonId: number) {
-    return this.lessonRepository
-      .createQueryBuilder("lesson")
-      .where("lesson.id = :lessonId", { lessonId })
-      .select(["lesson.id", "lesson.title", "lesson.duration", "lesson.image_url", "lesson.video_provider", "lesson.chapter_id"])
-      .getOne()
+    return this.prisma.lessons.findFirst({
+      where: { id: lessonId, deleted_at: null },
+      select: {
+        id: true,
+        title: true,
+        duration: true,
+        image_url: true,
+        video_provider: true,
+        chapter_id: true,
+      },
+    })
   }
 
   async getCompletedLessons(userId: number, courseId: number) {
-    return this.lessonCompleteRepository.find({
-      where: { user_id: userId, course_id: courseId },
-      select: ["lesson_id"],
+    return this.prisma.lesson_complete.findMany({
+      where: { user_id: userId, course_id: courseId, deleted_at: null },
+      select: { lesson_id: true },
     })
   }
 
   async create(dto: CreateLessonDto, file?: Express.Multer.File) {
-    const chapter = await this.lessonRepository.manager.findOne(Chapter, { where: { id: dto.chapter_id }, relations: ["course"] })
-    if (!chapter) throw new AppException(APP_ERROR.CHAPTER_NOT_FOUND)
-    chapter.chapter_lesson_count += 1
-    const lesson = this.lessonRepository.create({
-      ...dto,
-      position: chapter.chapter_lesson_count,
+    const chapter = await this.prisma.chapters.findFirst({
+      where: { id: dto.chapter_id, deleted_at: null },
+      include: { courses: true },
     })
-    if (file) {
+    if (!chapter) throw new AppException(APP_ERROR.CHAPTER_NOT_FOUND)
+
+    const newLessonCount = chapter.chapter_lesson_count + 1
+
+    // Update chapter lesson count
+    await this.prisma.chapters.update({
+      where: { id: chapter.id },
+      data: { chapter_lesson_count: newLessonCount },
+    })
+
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    const lessonData: any = {
+      ...dto,
+      position: newLessonCount,
+    }
+
+    if (file && chapter.courses) {
       const fileInfo = await this.fileService.create(
         {
-          sub_bucket: `courses/${chapter.course.slug}`,
+          sub_bucket: `courses/${chapter.courses.slug}`,
           is_public: false,
         },
         file,
       )
-      const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
+      const duration = await this.ffmpegService.getDuration(file)
       const nodeEnv = this.configService.get<string>("NODE_ENV")
       const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
-      lesson.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
-      lesson.duration = duration // Assuming file.filename is the uploaded video URL
+      lessonData.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
+      lessonData.duration = duration
     }
-    await this.lessonCompleteRepository.manager.save(chapter)
-    return this.lessonRepository.save(lesson)
+
+    return this.prisma.lessons.create({ data: lessonData })
   }
 
   async update(id: number, dto: UpdateLessonDto, file?: Express.Multer.File) {
-    const lesson = await this.lessonRepository.findOne({ where: { id }, relations: ["chapter", "chapter.course"] })
+    const lesson = await this.prisma.lessons.findFirst({
+      where: { id, deleted_at: null },
+      include: { chapters: { include: { courses: true } } },
+    })
     if (!lesson) throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
-    if (!lesson.chapter || !lesson.chapter.course) throw new Error("Chapter or Course not found for the lesson")
-    Object.assign(lesson, dto)
+    if (!lesson.chapters || !lesson.chapters.courses) throw new Error("Chapter or Course not found for the lesson")
 
-    // Here you would typically upload the file to your storage (e.g., Minio, S3)
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    const updateData: any = { ...dto }
+
     if (file) {
       const fileInfo = await this.fileService.create(
         {
-          sub_bucket: `courses/${lesson.chapter.course.slug}`,
+          sub_bucket: `courses/${lesson.chapters.courses.slug}`,
           is_public: false,
         },
         file,
       )
-      const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
+      const duration = await this.ffmpegService.getDuration(file)
       const nodeEnv = this.configService.get<string>("NODE_ENV")
       const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
-      lesson.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
-      lesson.duration = duration // Assuming file.filename is the uploaded video URL
+      updateData.video_url = `${host}/api/v1/files/video/${fileInfo.filename}`
+      updateData.duration = duration
     }
 
-    return this.lessonRepository.save(lesson)
+    return this.prisma.lessons.update({
+      where: { id },
+      data: updateData,
+    })
   }
 
   async updateVideoInfo(id: number, video_url: string, duration: number, video_provider: string) {
@@ -99,32 +120,38 @@ export class LessonService {
   }
 
   async uploadVideo(lessonId: number, file: Express.Multer.File) {
-    const lesson = await this.lessonRepository.findOne({ where: { id: lessonId }, relations: ["chapter", "chapter.course"] })
+    const lesson = await this.prisma.lessons.findFirst({
+      where: { id: lessonId, deleted_at: null },
+      include: { chapters: { include: { courses: true } } },
+    })
     if (!lesson) throw new Error("Lesson not found")
-    if (!lesson.chapter || !lesson.chapter.course) throw new Error("Chapter or Course not found for the lesson")
-    // Here you would typically upload the file to your storage (e.g., Minio, S3)
+    if (!lesson.chapters || !lesson.chapters.courses) throw new Error("Chapter or Course not found for the lesson")
 
     const fileInfo = await this.fileService.create(
       {
-        sub_bucket: `courses/${lesson.chapter.course.slug}`,
+        sub_bucket: `courses/${lesson.chapters.courses.slug}`,
         is_public: false,
       },
       file,
     )
-    const duration = await this.ffmpegService.getDuration(file) // Assuming you have a method to get video duration
-    lesson.video_url = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
-    lesson.duration = duration // Assuming file.filename is the uploaded video URL
-    await this.lessonRepository.save(lesson)
+    const duration = await this.ffmpegService.getDuration(file)
+    const videoUrl = `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`
+
+    await this.prisma.lessons.update({
+      where: { id: lessonId },
+      data: { video_url: videoUrl, duration },
+    })
+
     return {
       lessonId,
-      video_url: `https://api.coursity.io.vn/api/v1/files/video/${fileInfo.filename}`, // Assuming file.filename is the uploaded video URL
-      duration: 0, // Placeholder for duration, should be calculated
-      video_provider: "system", // Placeholder for video provider
+      video_url: videoUrl,
+      duration: 0,
+      video_provider: "system",
     }
   }
 
   async updateLessonPositions(bulkUpdateLessonDto: BulkUpdateLessonDto) {
-    const results: Lesson[] = []
+    const results: lessons[] = []
     for (const lesson of bulkUpdateLessonDto.lessons) {
       const { id, ...updateDto } = lesson
       const updated = await this.update(id, updateDto)
@@ -134,29 +161,27 @@ export class LessonService {
   }
 
   async remove(lessonId: number, userId: number) {
-    // Find the lesson to ensure it exists
-    const lesson = await this.lessonRepository.findOne({ where: { id: lessonId } })
+    const lesson = await this.prisma.lessons.findFirst({ where: { id: lessonId, deleted_at: null } })
     if (!lesson) {
       throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
     }
 
     // Soft delete the lesson
-    const updateResult = await this.lessonRepository.softDelete(lessonId)
-
-    if (updateResult.affected === 0) {
-      throw new AppException(APP_ERROR.LESSON_NOT_FOUND)
-    }
+    await this.prisma.lessons.update({
+      where: { id: lessonId },
+      data: { deleted_at: new Date(), deleted_by: userId.toString() },
+    })
 
     // Update the chapter's lesson count
-    const lessonCount = await this.lessonRepository.count({
-      where: { chapter_id: lesson.chapter_id },
+    const lessonCount = await this.prisma.lessons.count({
+      where: { chapter_id: lesson.chapter_id, deleted_at: null },
     })
 
-    await this.lessonRepository.manager.update(Chapter, lesson.chapter_id, {
-      chapter_lesson_count: lessonCount,
+    await this.prisma.chapters.update({
+      where: { id: lesson.chapter_id },
+      data: { chapter_lesson_count: lessonCount },
     })
 
-    // Return the deleted lesson ID
     return { lesson_id: lessonId }
   }
 }

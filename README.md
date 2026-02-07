@@ -75,6 +75,15 @@ Migrations are used to manage database schema changes. To generate a new migrati
 npm run migration:generate --name=YOUR_MIGRATION_NAME
 ```
 
+## Prisma Development
+
+### Generating Prisma Client
+The Prisma Client is generated into `src/generated/prisma`. To regenerate it manually (e.g., after schema changes):
+
+```bash
+npx prisma generate
+```
+
 ## Testing
 
 Run unit tests:

@@ -1,5 +1,3 @@
-import type { TypeOrmModuleOptions } from "@nestjs/typeorm"
-
 export enum Env {
   DEFAULT = "default",
   DEVELOPMENT = "development",
@@ -20,14 +18,15 @@ export interface IClerk {
 export interface IPermit {
   apiKey: string
 }
+
 export interface IConfig {
   env: Env
   app: IConfigApp
-  db: TypeOrmModuleOptions
   clerk: IClerk
   permit: IPermit
   minio: MinioOptions
 }
+
 export interface MinioOptions {
   endPoint: string
   port: number
@@ -36,6 +35,7 @@ export interface MinioOptions {
   useSSL: boolean
   bucketName: string
 }
+
 export interface IPaginationMeta {
   /**
    * the amount of items on this specific page
@@ -58,10 +58,12 @@ export interface IPaginationMeta {
    */
   current_page: number
 }
+
 export interface PublicMetadata {
   db_user_id: number
   role: string
 }
+
 export type EncodeByResolution = {
   inputPath: string
   isHasAudio: boolean

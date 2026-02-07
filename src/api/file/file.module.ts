@@ -1,11 +1,10 @@
 import { Module } from "@nestjs/common"
 import { FileController } from "./file.controller"
 import { FileService } from "./file.service"
-import { TypeOrmModule } from "@nestjs/typeorm"
-import { File } from "@/entity/file.entity"
+import { FFmpegModule } from "@/modules/ffmpeg/ffmpeg.module"
 
 @Module({
-  imports: [TypeOrmModule.forFeature([File])],
+  imports: [FFmpegModule],
   controllers: [FileController],
   providers: [FileService],
   exports: [FileService],

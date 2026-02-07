@@ -1,6 +1,7 @@
 import { Controller } from "@nestjs/common"
+// biome-ignore lint/style/useImportType: <explanation>
 import { LoginDTO } from "./dto/login.dto"
-import { User } from "@/entity/user.entity"
+// biome-ignore lint/style/useImportType: <explanation>
 import { AuthService } from "./auth.service"
 
 @Controller("auth")

@@ -4,7 +4,7 @@ import { ValidationPipe, VersioningType } from "@nestjs/common"
 import { AppModule } from "./app/app.module"
 import type { IConfigApp } from "./common/interfaces/common.interface"
 import { httpLogger } from "http-system-logger"
-import * as cookieParser from "cookie-parser"
+import cookieParser from "cookie-parser"
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 

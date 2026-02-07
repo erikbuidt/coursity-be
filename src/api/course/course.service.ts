@@ -1,15 +1,10 @@
-import { Course } from "@/entity/course.entity"
 import { Injectable } from "@nestjs/common"
-import { InjectRepository } from "@nestjs/typeorm"
 // biome-ignore lint/style/useImportType: <explanation>
-import { Repository } from "typeorm"
-import { type IPaginationOptions, paginate, paginateRaw, type Pagination } from "nestjs-typeorm-paginate"
+import { PrismaService } from "@/modules/prisma/prisma.service"
 import { generateNameId, toSnakeCaseMeta } from "@/common/utils/app.util"
 import type { IPaginationMeta, PublicMetadata } from "@/common/interfaces/common.interface"
-import { Enrollment } from "@/entity/enrollment.entity"
 import { AppException } from "@/common/errors/exception.error"
 import { APP_ERROR } from "@/common/errors/app.error"
-import { CourseProgress } from "@/entity/course-progress.entity"
 // biome-ignore lint/style/useImportType: <explanation>
 import { CreateCourseDto } from "./dto/create-course.dto"
 // biome-ignore lint/style/useImportType: <explanation>
@@ -18,129 +13,166 @@ import { FileService } from "../file/file.service"
 import { ConfigService } from "@nestjs/config"
 import { v4 as uuidv4 } from "uuid"
 import { COURSE_STATUS } from "@/common/constant/app.constant"
+import type { courses } from "../../generated/prisma/client"
+
+interface PaginationOptions {
+  page?: number
+  limit?: number
+  status?: COURSE_STATUS[]
+}
+
+interface PaginatedResult<T> {
+  items: T[]
+  meta: IPaginationMeta
+}
 
 @Injectable()
 export class CourseService {
   constructor(
-    @InjectRepository(Course)
-    private readonly courseRepository: Repository<Course>,
-    @InjectRepository(CourseProgress)
-    private readonly courseProgressRepository: Repository<CourseProgress>,
-    @InjectRepository(Enrollment)
-    private readonly enrollmentRepository: Repository<Enrollment>,
-
+    private readonly prisma: PrismaService,
     private readonly fileService: FileService,
     private readonly configService: ConfigService,
   ) {}
+
   async findAll(
-    options: IPaginationOptions & { status?: COURSE_STATUS[] },
+    options: PaginationOptions,
     search?: string,
     user?: PublicMetadata,
-  ): Promise<Pagination<Course & { lesson_count: number }, IPaginationMeta>> {
-    const queryBuilder = this.courseRepository
-      .createQueryBuilder("course")
-      .leftJoin("course.chapters", "chapter")
-      .leftJoin("chapter.lessons", "lesson")
-      .leftJoin("course.instructor", "instructor")
-      .select([
-        "course.id AS id",
-        "course.title AS title",
-        "course.description AS description",
-        "course.price AS price",
-        "course.discount_price AS discount_price",
-        "course.slug AS slug",
-        "course.image_url AS image_url",
-        "course.status AS status",
-        "instructor.email AS instructor_email",
-        "COUNT(lesson.id) AS lesson_count",
-        "SUM(lesson.duration) duration",
-      ])
-      .groupBy("course.id")
-      .addGroupBy("instructor.email")
-      .orderBy("course.created_at", "DESC")
-    if (options.status && options.status.length > 0) {
-      queryBuilder.andWhere("course.status IN (:...status)", { status: options.status })
-    } else {
-      queryBuilder.andWhere("course.status != :status", { status: COURSE_STATUS.DRAFT })
-    }
-    if (user?.db_user_id) {
-      queryBuilder.andWhere("course.instructor_id = :instructor_id", { instructor_id: user.db_user_id })
-    }
-    if (search) {
-      queryBuilder.andWhere("course.title ILIKE :search", {
-        search: `%${search}%`,
-      })
-    }
+  ): Promise<PaginatedResult<courses & { lesson_count: number; instructor_email?: string }>> {
+    const page = options.page ?? 1
+    const limit = options.limit ?? 10
+    const skip = (page - 1) * limit
+
+    // Build where clause
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    const rawPagination = await paginateRaw<Course & { lesson_count: number; instructor_email: string }>(queryBuilder as any, options)
-    console.log(rawPagination.items)
+    const where: any = { deleted_at: null }
+
+    if (options.status && options.status.length > 0) {
+      where.status = { in: options.status }
+    } else {
+      where.status = { not: COURSE_STATUS.DRAFT }
+    }
+
+    if (user?.db_user_id) {
+      where.instructor_id = user.db_user_id
+    }
+
+    if (search) {
+      where.title = { contains: search, mode: "insensitive" }
+    }
+
+    // Get courses with aggregations
+    const [courses, total] = await Promise.all([
+      this.prisma.courses.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { created_at: "desc" },
+        include: {
+          users: { select: { email: true } },
+          chapters: {
+            include: {
+              lessons: { select: { id: true, duration: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.courses.count({ where }),
+    ])
+
+    const items = courses.map((course) => {
+      const lessonCount = course.chapters.reduce((acc, chapter) => acc + chapter.lessons.length, 0)
+      const duration = course.chapters.reduce(
+        (acc, chapter) => acc + chapter.lessons.reduce((sum, lesson) => sum + Number(lesson.duration ?? 0), 0),
+        0,
+      )
+      return {
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        price: course.price,
+        discount_price: course.discount_price,
+        slug: course.slug,
+        image_url: course.image_url,
+        status: course.status,
+        instructor_email: course.users?.email,
+        lesson_count: lessonCount,
+        duration,
+      }
+    })
+
+    const totalPages = Math.ceil(total / limit)
+
     return {
-      items: rawPagination.items.map((item) => ({
-        ...item,
-        lesson_count: Number(item.lesson_count),
-        instructor_email: item.instructor_email,
-      })),
-      meta: toSnakeCaseMeta(rawPagination.meta),
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+      items: items as any,
+      meta: {
+        total_items: total,
+        item_count: items.length,
+        items_per_page: limit,
+        total_pages: totalPages,
+        current_page: page,
+      },
     }
   }
-  async fineOne(slug: string, userId?: number): Promise<Course & { duration: number; lesson_count: number; is_enrolled: boolean }> {
-    const course = await this.courseRepository
-      .createQueryBuilder("course")
-      .leftJoinAndSelect("course.chapters", "chapter")
-      .leftJoinAndSelect("chapter.lessons", "lesson")
-      .where("course.slug = :slug", { slug })
-      .select([
-        "course.id",
-        "course.title",
-        "course.description",
-        "course.price",
-        "course.slug",
-        "course.status",
-        "course.image_url",
-        "course.promotion_video_url",
-        "course.discount_price",
-        "course.will_learns",
-        "course.instructor_id",
-        "course.requirements",
-        "chapter.id",
-        "chapter.title",
-        "chapter.position",
-        "lesson.id",
-        "lesson.title",
-        "lesson.duration",
-        "lesson.image_url",
-        "lesson.video_provider",
-        "lesson.video_url",
-        "lesson.position",
-        "lesson.chapter_id",
-      ])
-      .orderBy("chapter.position", "ASC")
-      .addOrderBy("lesson.position", "ASC")
-      .getOne()
-    const countAndSum = await this.courseRepository
-      .createQueryBuilder("course")
-      .leftJoin("course.chapters", "chapter")
-      .leftJoin("chapter.lessons", "lesson")
-      .where("course.slug = :slug", { slug })
-      .select(["COUNT(lesson.id) AS lesson_count", "SUM(lesson.duration) duration"])
-      .groupBy("course.id")
-      .getRawOne()
 
-    let enrollment: Enrollment | null = null
+  async fineOne(slug: string, userId?: number): Promise<courses & { duration: number; lesson_count: number; is_enrolled: boolean }> {
+    const course = await this.prisma.courses.findFirst({
+      where: { slug, deleted_at: null },
+      include: {
+        chapters: {
+          where: { deleted_at: null },
+          orderBy: { position: "asc" },
+          include: {
+            lessons: {
+              where: { deleted_at: null },
+              orderBy: { position: "asc" },
+              select: {
+                id: true,
+                title: true,
+                duration: true,
+                image_url: true,
+                video_provider: true,
+                video_url: true,
+                position: true,
+                chapter_id: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
     if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
+
+    // Calculate lesson count and duration
+    let lessonCount = 0
+    let totalDuration = 0
+    for (const chapter of course.chapters) {
+      lessonCount += chapter.lessons.length
+      for (const lesson of chapter.lessons) {
+        totalDuration += Number(lesson.duration ?? 0)
+      }
+    }
+
+    // Check enrollment if userId is provided
+    let isEnrolled = false
     if (userId) {
-      enrollment = await this.enrollmentRepository.findOne({
+      const enrollment = await this.prisma.enrollments.findFirst({
         where: {
           user_id: userId,
           course_id: course.id,
+          deleted_at: null,
         },
       })
+      isEnrolled = Boolean(enrollment)
     }
+
     return {
       ...course,
-      duration: countAndSum.duration,
-      lesson_count: countAndSum.lesson_count,
-      is_enrolled: Boolean(enrollment),
+      duration: totalDuration,
+      lesson_count: lessonCount,
+      is_enrolled: isEnrolled,
     }
   }
 
@@ -155,29 +187,37 @@ export class CourseService {
     )
     const nodeEnv = this.configService.get<string>("NODE_ENV")
     const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
-    const newCourse = this.courseRepository.create({
-      title: createCourseDto.title,
-      description: createCourseDto.description,
-      price: createCourseDto.price,
-      category: createCourseDto.category,
-      slug: slug,
-      image_url: `${host}/api/v1/files/${fileInfo.filename}`,
-      instructor: { id: userId },
-      updated_by: userId?.toString() || "admin",
-      created_by: userId?.toString() || "admin",
+
+    const newCourse = await this.prisma.courses.create({
+      data: {
+        title: createCourseDto.title,
+        description: createCourseDto.description,
+        price: createCourseDto.price,
+        category: createCourseDto.category,
+        slug: slug,
+        image_url: `${host}/api/v1/files/${fileInfo.filename}`,
+        instructor_id: userId,
+        updated_by: userId?.toString() ?? "admin",
+        created_by: userId?.toString() ?? "admin",
+      },
     })
-    return this.courseRepository.save(newCourse)
+    return newCourse
   }
+
   async update(
     slug: string,
-    dto: Partial<Course>,
+    dto: Record<string, unknown>,
     thumbnail: Express.Multer.File | undefined,
     promotionVideo: Express.Multer.File | undefined,
     userId: number,
   ) {
     console.log({ promotionVideo })
-    const course = await this.courseRepository.findOne({ where: { slug } })
+    const course = await this.prisma.courses.findFirst({ where: { slug, deleted_at: null } })
     if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
+
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    const updateData: any = { ...dto }
+
     if (thumbnail) {
       const nodeEnv = this.configService.get<string>("NODE_ENV")
       const host = nodeEnv === "development" ? "http://localhost:4000" : "https://api.coursity.io.vn"
@@ -188,7 +228,7 @@ export class CourseService {
         },
         thumbnail,
       )
-      dto.image_url = `${host}/api/v1/files/${fileInfo.filename}`
+      updateData.image_url = `${host}/api/v1/files/${fileInfo.filename}`
     }
 
     if (promotionVideo) {
@@ -201,49 +241,63 @@ export class CourseService {
         },
         promotionVideo,
       )
-      dto.promotion_video_url = `${host}/api/v1/files/${fileInfo.filename}`
+      updateData.promotion_video_url = `${host}/api/v1/files/${fileInfo.filename}`
     }
-    dto.updated_by = userId?.toString() || "admin"
-    Object.assign(course, dto)
-    course.status = COURSE_STATUS.DRAFT
-    return this.courseRepository.save(course)
+
+    updateData.updated_by = userId?.toString() ?? "admin"
+    updateData.status = COURSE_STATUS.DRAFT
+
+    return this.prisma.courses.update({
+      where: { id: course.id },
+      data: updateData,
+    })
   }
 
   async getCourseProgress(slug: string, userId: number) {
-    const courseProgress = await this.courseProgressRepository.findOne({
+    const course = await this.prisma.courses.findFirst({ where: { slug, deleted_at: null } })
+    if (!course) return null
+
+    const courseProgress = await this.prisma.course_progress.findFirst({
       where: {
-        course: {
-          slug,
-        },
+        course_id: course.id,
         user_id: userId,
+        deleted_at: null,
       },
     })
     return courseProgress
   }
 
   async submitToReview(slug: string, userId: number) {
-    const course = await this.courseRepository.findOne({ where: { slug, created_by: userId.toString() } })
+    const course = await this.prisma.courses.findFirst({
+      where: { slug, created_by: userId.toString(), deleted_at: null },
+    })
     if (!course) throw new AppException(APP_ERROR.COURSE_NOT_FOUND)
     if (course.status !== COURSE_STATUS.DRAFT) {
       throw new AppException(APP_ERROR.COURSE_NOT_IN_DRAFT_STATUS)
     }
-    course.status = COURSE_STATUS.IN_REVIEW
-    return this.courseRepository.save(course)
+
+    return this.prisma.courses.update({
+      where: { id: course.id },
+      data: { status: COURSE_STATUS.IN_REVIEW },
+    })
   }
+
   async getMyCourses(userId: number) {
-    const myEnrollment = await this.enrollmentRepository.find({
-      where: { user_id: userId },
-      relations: ["course"],
+    const myEnrollments = await this.prisma.enrollments.findMany({
+      where: { user_id: userId, deleted_at: null },
+      include: { courses: true },
     })
-    const courseProgresses = await this.courseProgressRepository.find({
-      where: { user_id: userId },
+
+    const courseProgresses = await this.prisma.course_progress.findMany({
+      where: { user_id: userId, deleted_at: null },
     })
-    const myCourses = myEnrollment.map((enrollment) => {
-      const course = enrollment.course
+
+    const myCourses = myEnrollments.map((enrollment) => {
+      const course = enrollment.courses
       const courseProgress = courseProgresses.find((cp) => cp.course_id === course.id)
       return { ...course, course_progress: courseProgress }
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    }) as any
+    })
+
     return myCourses
   }
 }
