@@ -14,7 +14,7 @@ services:
       POSTGRES_USER: coursity_user
       POSTGRES_PASSWORD: coursity_user123!
   minio:
-    image: bitnami/minio:2025.4.22
+    image: soldevelo/minio:2025.4.22
     ports:
       - '9000:9000'
       - '9001:9001'
